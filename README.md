@@ -36,6 +36,8 @@ A floating, translucent dock for GNOME Shell 50 and 51, inspired by the macOS do
   overlaps it). The dock hides in fullscreen.
 - **Right section.** Recently used apps, a **Downloads stack** (fan or grid)
   and the **Trash** (empty/full, open, empty).
+- **Recognizes stubborn apps.** Windows GNOME cannot match to their launcher
+  (e.g. the Spotify snap) still show up on the right icon.
 - **Fits the screen.** Icons shrink automatically when there are too many
   apps.
 - **Position and monitor.** Bottom, left or right, on any monitor.

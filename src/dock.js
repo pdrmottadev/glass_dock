@@ -498,6 +498,10 @@ export class Dock {
         return this._dark;
     }
 
+    get model() {
+        return this._model;
+    }
+
     // ---- Hover / magnification -------------------------------------------
 
     get hovered() {
@@ -702,7 +706,7 @@ export class Dock {
         const app = Shell.WindowTracker.get_default().get_window_app(window);
         if (!app)
             return;
-        const item = this._itemMap.get(`app:${app.get_id()}`);
+        const item = this._itemMap.get(`app:${this._model.resolve(app).get_id()}`);
         item?.bounce(3, () => window.has_focus());
     }
 

@@ -371,6 +371,45 @@ scenario_scale() {
     assert_no_js_errors "no JS errors at scale 2"
 }
 
+scenario_unmatched() {
+    section "Windows GNOME does not match to their app (e.g. Spotify snap)"
+    stop_shell
+    WITH_X11=1 start_shell
+    mkdir -p "$XDG_DATA_HOME/applications"
+    cat > "$XDG_DATA_HOME/applications/glassdock-fake.desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Fake Player
+Icon=multimedia-player
+Exec=python3 -I $HERE/fake_x11_app.py glassdockfake GlassDockFake
+StartupWMClass=glassdockfake
+DESKTOP
+    wait_for "__gd.app('glassdock-fake.desktop') !== null" 60
+    set_favorites "['glassdock-fake.desktop', '$TE']"
+
+    local display xauth fake
+    display=$(ev 'imports.gi.GLib.getenv("DISPLAY") ?? ""')
+    xauth=$(ev 'imports.gi.GLib.getenv("XAUTHORITY") ?? ""')
+    GDK_BACKEND=x11 DISPLAY="$display" XAUTHORITY="$xauth" WAYLAND_DISPLAY= \
+        python3 -I "$HERE/fake_x11_app.py" glassdockfake GlassDockFake > /dev/null 2>&1 &
+    fake=$!
+    wait_for "global.display.list_all_windows().some(w => w.get_wm_class() === 'GlassDockFake')" 60
+    sleep 1
+    assert_eq "the pinned app shows the window's dot" "__gd.item('app:glassdock-fake.desktop')._dotCount" 1
+    assert_eq "no extra generic icon for the window" \
+        "[...__gd.dock()._itemMap.keys()].filter(k => k.startsWith('app:window:')).length" 0
+    ev "__gd.activate(global.display.list_all_windows().find(w => w.get_wm_class() === 'GlassDockFake'))" > /dev/null
+    sleep 0.5
+    click_item "app:glassdock-fake.desktop"
+    wait_for "global.display.list_all_windows().find(w => w.get_wm_class() === 'GlassDockFake').minimized"
+    assert_eq "clicking the icon acts on that window" \
+        "global.display.list_all_windows().find(w => w.get_wm_class() === 'GlassDockFake').minimized" true
+    kill "$fake" 2>/dev/null
+    wait_for "!global.display.list_all_windows().some(w => w.get_wm_class() === 'GlassDockFake')" 40
+    assert_eq "the dot goes away when the window closes" "__gd.item('app:glassdock-fake.desktop')._dotCount" 0
+    assert_no_js_errors "no JS errors with unmatched windows"
+}
+
 scenario_i18n() {
     section "Translations"
     make -s -C "$ROOT" locale
@@ -387,7 +426,7 @@ scenario_i18n() {
 # ---- Main --------------------------------------------------------------------
 
 MAIN=(lifecycle basics multiwindow dnd autohide stacks fit prefs dark)
-SEPARATE=(monitors scale)
+SEPARATE=(monitors scale unmatched)
 SELECTED=("$@")
 [ ${#SELECTED[@]} -eq 0 ] && SELECTED=("${MAIN[@]}" i18n "${SEPARATE[@]}")
 

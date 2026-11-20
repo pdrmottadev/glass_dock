@@ -49,6 +49,7 @@ export function chooseGrid(sizes, areaW, areaH) {
 export class AppExpose {
     constructor(item) {
         this._dock = item._dock;
+        this._item = item;
         this._app = item.app;
         this._chosen = null;
         this._entries = [];
@@ -112,7 +113,7 @@ export class AppExpose {
     }
 
     _build() {
-        const windows = sortedWindows(this._app);
+        const windows = sortedWindows(this._item.windows());
         if (windows.length === 0) {
             this.close();
             return;

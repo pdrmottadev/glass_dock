@@ -46,7 +46,9 @@ start_shell() {
 
     local monitors=("$@")
     [ ${#monitors[@]} -eq 0 ] && monitors=(--virtual-monitor 1600x1000)
-    env -u WAYLAND_DISPLAY gnome-shell --headless "${monitors[@]}" --no-x11 \
+    local x11=(--no-x11)
+    [ -n "${WITH_X11:-}" ] && x11=()  # allow Xwayland for X11 test clients
+    env -u WAYLAND_DISPLAY gnome-shell --headless "${monitors[@]}" "${x11[@]}" \
         --wayland-display="$DISPLAY_NAME" --force-animations \
         > "$WORK/shell.log" 2>&1 &
     SHELL_PID=$!

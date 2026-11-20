@@ -15,15 +15,14 @@ import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js'
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {ModalLayer} from './overlay.js';
-import {getInterestingWindows} from './utils.js';
 
 const THUMB_MAX_W = 240;
 const THUMB_MAX_H = 150;
 const MINIMIZED_OPACITY = 150;
 
 /** Windows of an app in a stable order (creation order). */
-export function sortedWindows(app) {
-    return getInterestingWindows(app)
+export function sortedWindows(windows) {
+    return [...windows]
         .sort((a, b) => a.get_stable_sequence() - b.get_stable_sequence());
 }
 
@@ -65,12 +64,13 @@ export function createWindowThumbnail(metaWindow, maxW, maxH) {
 export class WindowPreviewsPopup {
     constructor(item) {
         this._dock = item._dock;
+        this._item = item;
         this._app = item.app;
         this._vertical = this._dock.geom.vertical;
 
         this._modal = new ModalLayer(this._dock, {
             onClose: () => this._animateOut(),
-            onFinished: () => this._app.disconnectObject(this),
+            onFinished: () => this._disconnect(),
         });
         this._anchor = this._modal.anchorFor(item);
 
@@ -80,7 +80,10 @@ export class WindowPreviewsPopup {
         });
         this._modal.actor.add_child(this._panel);
 
+        // Windows of the app itself, plus windows GNOME did not match to it
+        // (those come and go through the model).
         this._app.connectObject('windows-changed', () => this._rebuild(), this);
+        this._dock.model.connectObject('changed', () => this._rebuild(), this);
         this._rebuild();
 
         const [px, py] = this._dock.geom.edgePivot;
@@ -113,7 +116,7 @@ export class WindowPreviewsPopup {
     _rebuild() {
         if (this.closed)
             return;
-        const windows = sortedWindows(this._app);
+        const windows = sortedWindows(this._item.windows());
         if (windows.length === 0) {
             this.close();
             return;
@@ -211,7 +214,12 @@ export class WindowPreviewsPopup {
     }
 
     destroyNow() {
-        this._app.disconnectObject(this);
+        this._disconnect();
         this._modal.destroyNow();
+    }
+
+    _disconnect() {
+        this._app.disconnectObject(this);
+        this._dock.model.disconnectObject(this);
     }
 }

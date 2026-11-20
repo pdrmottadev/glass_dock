@@ -19,7 +19,6 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {AppMenu} from 'resource:///org/gnome/shell/ui/appMenu.js';
 
-import {getInterestingWindows} from './utils.js';
 
 const BOUNCE_TIME = 220;
 const PRESENCE_TIME = 260;
@@ -306,6 +305,12 @@ class DockAppIcon extends DockItem {
             this);
         Shell.WindowTracker.get_default().connectObject(
             'notify::focus-app', () => this._syncFocus(), this);
+        // Windows GNOME did not match to this app come and go through the model.
+        this._dock.model.connectObject('changed', () => {
+            this._syncState();
+            this._syncFocus();
+            this._applyIconGeometry();
+        }, this);
         this._syncState();
         this._syncFocus();
 
@@ -327,16 +332,21 @@ class DockAppIcon extends DockItem {
         return this.app.get_name();
     }
 
+    /** This app's windows, including ones GNOME did not match to it. */
+    windows() {
+        return this._dock.model.windowsFor(this.app);
+    }
+
+    get running() {
+        return this._dock.model.isRunning(this.app);
+    }
+
     _syncState() {
-        if (this.app.state === Shell.AppState.STOPPED) {
-            this.setDotCount(0);
-            return;
-        }
-        this.setDotCount(Math.max(1, getInterestingWindows(this.app).length));
+        this.setDotCount(this.running ? Math.max(1, this.windows().length) : 0);
     }
 
     _syncFocus() {
-        this.setDotsActive(Shell.WindowTracker.get_default().focus_app === this.app);
+        this.setDotsActive(this._dock.model.isFocused(this.app));
     }
 
     createMenu() {
@@ -352,7 +362,7 @@ class DockAppIcon extends DockItem {
         menu.addMenuItem(exposeItem, 0);
         menu.connect('open-state-changed', (m, open) => {
             if (open)
-                exposeItem.visible = getInterestingWindows(this.app).length > 1;
+                exposeItem.visible = this.windows().length > 1;
         });
         return menu;
     }
@@ -360,7 +370,7 @@ class DockAppIcon extends DockItem {
     // Called by AppMenu when it launches the app.
     animateLaunch() {
         if (this._dock.settings.get_boolean('bounce-on-launch'))
-            this.bounce(10, () => this.app.state === Shell.AppState.RUNNING);
+            this.bounce(10, () => this.running);
     }
 
     vfunc_clicked(button) {
@@ -383,16 +393,15 @@ class DockAppIcon extends DockItem {
             return;
         }
 
-        if (app.state === Shell.AppState.STOPPED) {
+        if (!this.running) {
             this.animateLaunch();
             app.activate();
             Main.overview.hide();
             return;
         }
 
-        const windows = getInterestingWindows(app);
-        const tracker = Shell.WindowTracker.get_default();
-        const isFocused = tracker.focus_app === app && !Main.overview.visible;
+        const windows = this.windows();
+        const isFocused = this._dock.model.isFocused(app) && !Main.overview.visible;
 
         if (windows.length === 0) {
             app.activate();
@@ -431,7 +440,7 @@ class DockAppIcon extends DockItem {
             this._cycleWindows(1);
             break;
         default:
-            app.activate();
+            this._raiseAll(windows);
         }
     }
 
@@ -462,7 +471,7 @@ class DockAppIcon extends DockItem {
     }
 
     _cycleWindows(direction) {
-        const windows = getInterestingWindows(this.app)
+        const windows = this.windows()
             .sort((a, b) => a.get_stable_sequence() - b.get_stable_sequence());
         if (windows.length === 0)
             return;
@@ -473,7 +482,7 @@ class DockAppIcon extends DockItem {
     }
 
     vfunc_scroll_event(event) {
-        if (this.app.state !== Shell.AppState.RUNNING)
+        if (!this.running)
             return Clutter.EVENT_PROPAGATE;
         const now = GLib.get_monotonic_time() / 1000;
         if (now - this._lastScroll < SCROLL_COOLDOWN_MS)
@@ -524,17 +533,18 @@ class DockAppIcon extends DockItem {
     }
 
     _applyIconGeometry() {
-        for (const w of this.app.get_windows())
+        for (const w of this.windows())
             w.set_icon_geometry(this._iconGeometry);
     }
 
     _onDestroy() {
         if (this._iconGeometry) {
-            for (const w of this.app.get_windows())
+            for (const w of this.windows())
                 w.set_icon_geometry(null);
         }
         this.app.disconnectObject(this);
         Shell.WindowTracker.get_default().disconnectObject(this);
+        this._dock.model.disconnectObject(this);
         super._onDestroy();
     }
 });

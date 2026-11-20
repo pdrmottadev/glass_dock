@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1 — 2026-11-20
+
+- Apps whose windows GNOME cannot match to their launcher (such as the
+  Spotify snap, whose window class differs in case from the .desktop file)
+  now show their real icon, get indicator dots on their pinned icon and
+  respond to clicks, previews and App Exposé, instead of appearing as an
+  extra generic icon. The dock matches the window class without case and,
+  failing that, the systemd scope of the process (snap or GNOME launch).
+
 ## 1.0 — 2026-11-20
 
 First public release. Supports GNOME Shell 50 and 51.
