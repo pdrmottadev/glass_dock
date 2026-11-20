@@ -1,0 +1,299 @@
+# Spanish translation for Glass Dock.
+# Copyright (C) 2026 pdrmottadev
+# This file is distributed under the same license as the glass-dock package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: glass-dock 1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/pdrmottadev/glass-dock/issues\n"
+"POT-Creation-Date: 2026-11-20 18:49-0300\n"
+"PO-Revision-Date: 2026-11-20 18:00-0300\n"
+"Last-Translator: pdrmottadev\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: prefs.js:71
+msgid "Primary monitor"
+msgstr "Monitor principal"
+
+#: prefs.js:84
+#, javascript-format
+msgid "%s (disconnected)"
+msgstr "%s (desconectado)"
+
+#: prefs.js:95
+msgid "Appearance"
+msgstr "Apariencia"
+
+#: prefs.js:99
+msgid "Position and Size"
+msgstr "Posición y tamaño"
+
+#: prefs.js:100
+msgid "Screen edge"
+msgstr "Borde de la pantalla"
+
+#: prefs.js:101
+msgid "Bottom"
+msgstr "Abajo"
+
+#: prefs.js:102
+msgid "Left"
+msgstr "Izquierda"
+
+#: prefs.js:103
+msgid "Right"
+msgstr "Derecha"
+
+#: prefs.js:105
+msgid "Monitor"
+msgstr "Monitor"
+
+#: prefs.js:106
+msgid "Icon size"
+msgstr "Tamaño de los iconos"
+
+#: prefs.js:107
+msgid "In pixels; icons shrink automatically when they do not fit"
+msgstr "En píxeles; los iconos se reducen solos cuando no caben en la pantalla"
+
+#: prefs.js:110
+msgid "Magnification"
+msgstr "Ampliación"
+
+#: prefs.js:111
+msgid "Magnify icons on hover"
+msgstr "Ampliar los iconos al pasar el ratón"
+
+#: prefs.js:112
+msgid "Maximum size"
+msgstr "Tamaño máximo"
+
+#: prefs.js:112
+msgid "In pixels"
+msgstr "En píxeles"
+
+#: prefs.js:117
+msgid "Glass"
+msgstr "Cristal"
+
+#: prefs.js:118
+msgid "Blur the background"
+msgstr "Desenfocar el fondo"
+
+#: prefs.js:119
+msgid "Opacity"
+msgstr "Opacidad"
+
+#: prefs.js:120
+msgid "Running indicators"
+msgstr "Indicadores de aplicaciones abiertas"
+
+#: prefs.js:121
+msgid "One dot per open window"
+msgstr "Un punto por cada ventana abierta"
+
+#: prefs.js:128
+msgid "Behavior"
+msgstr "Comportamiento"
+
+#: prefs.js:132
+msgid "Auto-hide"
+msgstr "Ocultar automáticamente"
+
+#: prefs.js:133
+msgid "Mode"
+msgstr "Modo"
+
+#: prefs.js:134
+msgid "Never hide"
+msgstr "No ocultar nunca"
+
+#: prefs.js:135
+msgid "Always hide (show at screen edge)"
+msgstr "Ocultar siempre (mostrar en el borde de la pantalla)"
+
+#: prefs.js:136
+msgid "Hide when a window overlaps"
+msgstr "Ocultar cuando una ventana se superponga"
+
+#: prefs.js:138
+msgid "Hide delay"
+msgstr "Retraso para ocultar"
+
+#: prefs.js:138
+msgid "In milliseconds"
+msgstr "En milisegundos"
+
+#: prefs.js:149
+msgid "Clicking an Already Focused App"
+msgstr "Al hacer clic en una aplicación ya enfocada"
+
+#: prefs.js:150
+msgid ""
+"Clicking an app in the background brings all of its windows to the front."
+msgstr ""
+"Hacer clic en una aplicación en segundo plano trae todas sus ventanas al "
+"frente."
+
+#: prefs.js:152
+msgid "With one window"
+msgstr "Con una ventana"
+
+#: prefs.js:153
+msgid "Minimize"
+msgstr "Minimizar"
+
+#: prefs.js:154
+msgid "Do nothing"
+msgstr "No hacer nada"
+
+#: prefs.js:156
+msgid "With several windows"
+msgstr "Con varias ventanas"
+
+#: prefs.js:157
+msgid "Window previews"
+msgstr "Vistas previas de las ventanas"
+
+#: prefs.js:158
+msgid "App Exposé"
+msgstr "App Exposé"
+
+#: prefs.js:159
+msgid "Cycle through windows"
+msgstr "Alternar entre ventanas"
+
+#: prefs.js:160
+msgid "Minimize all"
+msgstr "Minimizar todas"
+
+#: prefs.js:164
+msgid "Icons"
+msgstr "Iconos"
+
+#: prefs.js:165
+msgid "Bounce when launching an app"
+msgstr "Animar el icono al abrir una aplicación"
+
+#: prefs.js:166
+msgid "Show Applications button"
+msgstr "Mostrar el botón de Aplicaciones"
+
+#: prefs.js:173
+msgid "Right Section"
+msgstr "Sección derecha"
+
+#: prefs.js:177
+msgid "Recent Apps"
+msgstr "Aplicaciones recientes"
+
+#: prefs.js:178
+msgid "Show recently used apps"
+msgstr "Mostrar aplicaciones usadas recientemente"
+
+#: prefs.js:179
+msgid "How many"
+msgstr "Cantidad"
+
+#: prefs.js:184
+msgid "Folders"
+msgstr "Carpetas"
+
+#: prefs.js:185
+msgid "Show Downloads stack"
+msgstr "Mostrar la pila de Descargas"
+
+#: prefs.js:186
+msgid "Show Downloads as"
+msgstr "Mostrar Descargas como"
+
+#: prefs.js:187 src/stacks.js:253
+msgid "Fan"
+msgstr "Abanico"
+
+#: prefs.js:188 src/stacks.js:254
+msgid "Grid"
+msgstr "Cuadrícula"
+
+#: prefs.js:190
+msgid "Show Trash"
+msgstr "Mostrar la Papelera"
+
+#: src/dockItem.js:345
+msgid "Show All Windows"
+msgstr "Mostrar todas las ventanas"
+
+#: src/dockItem.js:559
+msgid "Applications"
+msgstr "Aplicaciones"
+
+#: src/dockManager.js:84
+msgid "Another dock is enabled"
+msgstr "Hay otro dock activo"
+
+#: src/dockManager.js:85
+#, javascript-format
+msgid "%s is enabled too. Disable it to avoid two docks on screen."
+msgstr ""
+"%s también está activo. Desactívelo para no tener dos docks en pantalla."
+
+#: src/stacks.js:114 src/stacks.js:193
+msgid "Open in Files"
+msgstr "Abrir en Archivos"
+
+#: src/stacks.js:167
+msgid "No files"
+msgstr "No hay archivos"
+
+#: src/stacks.js:251
+msgid "Open Folder"
+msgstr "Abrir carpeta"
+
+#: src/stacks.js:252
+msgid "View as"
+msgstr "Ver como"
+
+#: src/trash.js:54
+msgid "Trash"
+msgstr "Papelera"
+
+#: src/trash.js:107
+msgid "Empty all items from Trash?"
+msgstr "¿Vaciar todos los elementos de la Papelera?"
+
+#: src/trash.js:108
+msgid "All items in the Trash will be permanently deleted."
+msgstr "Todos los elementos de la Papelera se eliminarán de forma permanente."
+
+#: src/trash.js:111
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: src/trash.js:116
+msgid "Empty Trash"
+msgstr "Vaciar la Papelera"
+
+#: src/trash.js:121
+msgid "Could not empty the Trash"
+msgstr "No se pudo vaciar la Papelera"
+
+#: src/trash.js:143
+msgid "Open"
+msgstr "Abrir"
+
+#: src/trash.js:145
+msgid "Empty Trash…"
+msgstr "Vaciar la Papelera…"
+
+#: src/utils.js:100
+#, javascript-format
+msgid "Could not open %s"
+msgstr "No se pudo abrir %s"
+
+#: src/windowPreviews.js:154
+msgid "Close Window"
+msgstr "Cerrar ventana"

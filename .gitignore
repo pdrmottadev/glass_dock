@@ -1,0 +1,6 @@
+schemas/gschemas.compiled
+locale/
+dist/
+node_modules/
+package-lock.json
+tests/headless/work/

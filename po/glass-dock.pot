@@ -1,0 +1,298 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the glass-dock package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: glass-dock 1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/pdrmottadev/glass-dock/issues\n"
+"POT-Creation-Date: 2026-11-20 18:49-0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: prefs.js:71
+msgid "Primary monitor"
+msgstr ""
+
+#: prefs.js:84
+#, javascript-format
+msgid "%s (disconnected)"
+msgstr ""
+
+#: prefs.js:95
+msgid "Appearance"
+msgstr ""
+
+#: prefs.js:99
+msgid "Position and Size"
+msgstr ""
+
+#: prefs.js:100
+msgid "Screen edge"
+msgstr ""
+
+#: prefs.js:101
+msgid "Bottom"
+msgstr ""
+
+#: prefs.js:102
+msgid "Left"
+msgstr ""
+
+#: prefs.js:103
+msgid "Right"
+msgstr ""
+
+#: prefs.js:105
+msgid "Monitor"
+msgstr ""
+
+#: prefs.js:106
+msgid "Icon size"
+msgstr ""
+
+#: prefs.js:107
+msgid "In pixels; icons shrink automatically when they do not fit"
+msgstr ""
+
+#: prefs.js:110
+msgid "Magnification"
+msgstr ""
+
+#: prefs.js:111
+msgid "Magnify icons on hover"
+msgstr ""
+
+#: prefs.js:112
+msgid "Maximum size"
+msgstr ""
+
+#: prefs.js:112
+msgid "In pixels"
+msgstr ""
+
+#: prefs.js:117
+msgid "Glass"
+msgstr ""
+
+#: prefs.js:118
+msgid "Blur the background"
+msgstr ""
+
+#: prefs.js:119
+msgid "Opacity"
+msgstr ""
+
+#: prefs.js:120
+msgid "Running indicators"
+msgstr ""
+
+#: prefs.js:121
+msgid "One dot per open window"
+msgstr ""
+
+#: prefs.js:128
+msgid "Behavior"
+msgstr ""
+
+#: prefs.js:132
+msgid "Auto-hide"
+msgstr ""
+
+#: prefs.js:133
+msgid "Mode"
+msgstr ""
+
+#: prefs.js:134
+msgid "Never hide"
+msgstr ""
+
+#: prefs.js:135
+msgid "Always hide (show at screen edge)"
+msgstr ""
+
+#: prefs.js:136
+msgid "Hide when a window overlaps"
+msgstr ""
+
+#: prefs.js:138
+msgid "Hide delay"
+msgstr ""
+
+#: prefs.js:138
+msgid "In milliseconds"
+msgstr ""
+
+#: prefs.js:149
+msgid "Clicking an Already Focused App"
+msgstr ""
+
+#: prefs.js:150
+msgid ""
+"Clicking an app in the background brings all of its windows to the front."
+msgstr ""
+
+#: prefs.js:152
+msgid "With one window"
+msgstr ""
+
+#: prefs.js:153
+msgid "Minimize"
+msgstr ""
+
+#: prefs.js:154
+msgid "Do nothing"
+msgstr ""
+
+#: prefs.js:156
+msgid "With several windows"
+msgstr ""
+
+#: prefs.js:157
+msgid "Window previews"
+msgstr ""
+
+#: prefs.js:158
+msgid "App Exposé"
+msgstr ""
+
+#: prefs.js:159
+msgid "Cycle through windows"
+msgstr ""
+
+#: prefs.js:160
+msgid "Minimize all"
+msgstr ""
+
+#: prefs.js:164
+msgid "Icons"
+msgstr ""
+
+#: prefs.js:165
+msgid "Bounce when launching an app"
+msgstr ""
+
+#: prefs.js:166
+msgid "Show Applications button"
+msgstr ""
+
+#: prefs.js:173
+msgid "Right Section"
+msgstr ""
+
+#: prefs.js:177
+msgid "Recent Apps"
+msgstr ""
+
+#: prefs.js:178
+msgid "Show recently used apps"
+msgstr ""
+
+#: prefs.js:179
+msgid "How many"
+msgstr ""
+
+#: prefs.js:184
+msgid "Folders"
+msgstr ""
+
+#: prefs.js:185
+msgid "Show Downloads stack"
+msgstr ""
+
+#: prefs.js:186
+msgid "Show Downloads as"
+msgstr ""
+
+#: prefs.js:187 src/stacks.js:253
+msgid "Fan"
+msgstr ""
+
+#: prefs.js:188 src/stacks.js:254
+msgid "Grid"
+msgstr ""
+
+#: prefs.js:190
+msgid "Show Trash"
+msgstr ""
+
+#: src/dockItem.js:345
+msgid "Show All Windows"
+msgstr ""
+
+#: src/dockItem.js:559
+msgid "Applications"
+msgstr ""
+
+#: src/dockManager.js:84
+msgid "Another dock is enabled"
+msgstr ""
+
+#: src/dockManager.js:85
+#, javascript-format
+msgid "%s is enabled too. Disable it to avoid two docks on screen."
+msgstr ""
+
+#: src/stacks.js:114 src/stacks.js:193
+msgid "Open in Files"
+msgstr ""
+
+#: src/stacks.js:167
+msgid "No files"
+msgstr ""
+
+#: src/stacks.js:251
+msgid "Open Folder"
+msgstr ""
+
+#: src/stacks.js:252
+msgid "View as"
+msgstr ""
+
+#: src/trash.js:54
+msgid "Trash"
+msgstr ""
+
+#: src/trash.js:107
+msgid "Empty all items from Trash?"
+msgstr ""
+
+#: src/trash.js:108
+msgid "All items in the Trash will be permanently deleted."
+msgstr ""
+
+#: src/trash.js:111
+msgid "Cancel"
+msgstr ""
+
+#: src/trash.js:116
+msgid "Empty Trash"
+msgstr ""
+
+#: src/trash.js:121
+msgid "Could not empty the Trash"
+msgstr ""
+
+#: src/trash.js:143
+msgid "Open"
+msgstr ""
+
+#: src/trash.js:145
+msgid "Empty Trash…"
+msgstr ""
+
+#: src/utils.js:100
+#, javascript-format
+msgid "Could not open %s"
+msgstr ""
+
+#: src/windowPreviews.js:154
+msgid "Close Window"
+msgstr ""

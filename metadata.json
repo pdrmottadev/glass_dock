@@ -1,0 +1,12 @@
+{
+  "uuid": "glass-dock@pdrmottadev.github.io",
+  "name": "Glass Dock",
+  "description": "A floating, translucent dock with magnification, window previews, App Exposé, auto-hide, a Downloads stack and Trash.",
+  "shell-version": [
+    "51"
+  ],
+  "url": "https://github.com/pdrmottadev/glass-dock",
+  "settings-schema": "org.gnome.shell.extensions.glass-dock",
+  "gettext-domain": "glass-dock",
+  "version-name": "1.0"
+}
