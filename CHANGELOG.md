@@ -2,7 +2,7 @@
 
 ## 1.0 — 2026-11-20
 
-First public release.
+First public release. Supports GNOME Shell 50 and 51.
 
 - Floating glass dock with blur, magnification, tooltips and launch bounce.
 - One indicator dot per window.
@@ -18,7 +18,8 @@ First public release.
 
 Fixes found by the end-to-end tests before release:
 
-- The Downloads grid view never opened (invalid `St.Viewport` property on GNOME 51).
+- The Downloads grid view never opened (invalid `St.Viewport` property).
 - Clicking a background app could focus a stale window after using App Exposé.
 - The invisible struts actor covered overview drop targets at the bottom edge.
 - A queued relayout could touch destroyed actors while GNOME Shell shut down.
+- Icons still animating out could be destroyed twice when the dock was rebuilt.

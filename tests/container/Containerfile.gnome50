@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Fedora 44 ships GNOME Shell 50. Used by tests/container/run-gnome50.sh.
+FROM registry.fedoraproject.org/fedora:44
+RUN dnf install -y --setopt=install_weak_deps=False \
+        gnome-shell gnome-text-editor gnome-calculator nautilus \
+        python3-gobject dbus-daemon gjs make gettext glib2 \
+        mesa-dri-drivers systemd accountsservice \
+    && dnf clean all \
+    && useradd -m -G video,render tester
+# systemd provides the system bus and logind, which GNOME Shell needs.
+CMD ["/sbin/init"]

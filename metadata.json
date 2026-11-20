@@ -3,6 +3,7 @@
   "name": "Glass Dock",
   "description": "A floating, translucent dock with magnification, window previews, App Exposé, auto-hide, a Downloads stack and Trash.",
   "shell-version": [
+    "50",
     "51"
   ],
   "url": "https://github.com/pdrmottadev/glass_dock",

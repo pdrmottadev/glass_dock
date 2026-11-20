@@ -26,6 +26,11 @@ const PRESENCE_TIME = 260;
 const SCROLL_COOLDOWN_MS = 250;
 const MAX_DOTS = 4;
 
+// GNOME 51 renamed ONE/TWO to PRIMARY/MIDDLE (and warns on the old names);
+// GNOME 50 only has the old ones.
+const BUTTON_MASK = (St.ButtonMask.PRIMARY ?? St.ButtonMask.ONE) |
+    (St.ButtonMask.MIDDLE ?? St.ButtonMask.TWO);
+
 /** Popup arrow side for a given dock position. */
 export function menuSideFor(position) {
     switch (position) {
@@ -51,7 +56,7 @@ class DockItem extends St.Button {
             reactive: true,
             can_focus: false,
             track_hover: true,
-            button_mask: St.ButtonMask.PRIMARY | St.ButtonMask.MIDDLE,
+            button_mask: BUTTON_MASK,
             ...params,
         });
 

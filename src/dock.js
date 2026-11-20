@@ -305,10 +305,13 @@ export class Dock {
             this._itemMap.delete(item.itemKey);
             if (this._tooltipItem === item)
                 this.hideTooltip();
+            // Also runs when the animation is cut short because the dock
+            // itself is being destroyed; the item is gone from the list then.
             const done = () => {
                 const idx = this._items.indexOf(item);
-                if (idx !== -1)
-                    this._items.splice(idx, 1);
+                if (idx === -1)
+                    return;
+                this._items.splice(idx, 1);
                 item.destroy();
                 this.queueRelayout();
             };
@@ -894,10 +897,11 @@ export class Dock {
         this._overlay?.destroyNow();
         this._overlay = null;
 
-        for (const item of this._items)
-            item.destroy();
+        const items = this._items;
         this._items = [];
         this._itemMap.clear();
+        for (const item of items)
+            item.destroy();
 
         this._struts?.destroy();
         this._struts = null;

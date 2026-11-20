@@ -7,7 +7,7 @@ JS := extension.js prefs.js $(wildcard src/*.js)
 LANGS := $(shell cat po/LINGUAS)
 VERSION := $(shell sed -n 's/.*"version-name": "\(.*\)".*/\1/p' metadata.json)
 
-.PHONY: all schemas locale install uninstall enable disable prefs pot lint check test pack release logs clean
+.PHONY: all schemas locale install uninstall enable disable prefs pot lint check test test-gnome50 pack release logs clean
 
 all: schemas locale
 
@@ -61,6 +61,10 @@ check:
 # End-to-end tests in an isolated headless GNOME Shell (see tests/headless).
 test: schemas
 	tests/headless/run.sh
+
+# Same tests against GNOME Shell 50, in a Fedora 44 container (podman).
+test-gnome50: schemas
+	tests/container/run-gnome50.sh
 
 pack: schemas
 	mkdir -p dist

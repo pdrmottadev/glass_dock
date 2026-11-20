@@ -2,5 +2,5 @@
   "uuid": "test-helper@local",
   "name": "Glass Dock test helper",
   "description": "Enables unsafe mode so the headless tests can use Eval and Screenshot. Never install this in a real session.",
-  "shell-version": ["51"]
+  "shell-version": ["50", "51"]
 }

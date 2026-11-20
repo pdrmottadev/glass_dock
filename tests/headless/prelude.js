@@ -13,6 +13,17 @@
     const now = () => GLib.get_monotonic_time();
     const KEY_ESC = 1; // evdev keycode
 
+    // In containers without a logind seat session, malcontent refuses the
+    // parental-controls query and GNOME then hides every app (including
+    // favorites). Turn the filter off in that case; real sessions are untouched.
+    import('resource:///org/gnome/shell/misc/parentalControlsManager.js').then(module => {
+        const manager = module.getDefault();
+        if (!manager.initialized) {
+            manager._disabled = true;
+            manager.emit('app-filter-changed');
+        }
+    });
+
     globalThis.__gd = {
         outer() {
             return Main.layoutManager.uiGroup.get_children().filter(a => a.name === 'glassDockOuter');

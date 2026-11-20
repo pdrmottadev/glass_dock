@@ -1,6 +1,6 @@
 # Glass Dock
 
-A floating, translucent dock for GNOME Shell 51, inspired by the macOS dock.
+A floating, translucent dock for GNOME Shell 50 and 51, inspired by the macOS dock.
 
 ![Glass Dock](docs/screenshots/dock-light.png)
 
@@ -68,7 +68,7 @@ A floating, translucent dock for GNOME Shell 51, inspired by the macOS dock.
 Settings: `gnome-extensions prefs glass-dock@pdrmottadev.github.io`, or the
 Extensions app.
 
-Requires **GNOME Shell 51**.
+Requires **GNOME Shell 50 or 51**.
 
 ## Development
 
@@ -77,6 +77,7 @@ make install   # schema + translations, symlink into ~/.local/share/gnome-shell/
 make enable    # after logging out and back in
 make lint      # ESLint (run `npm install` once)
 make test      # end-to-end tests in an isolated headless GNOME Shell
+make test-gnome50  # the same tests against GNOME Shell 50 in a Fedora 44 container (podman)
 make release   # lint + test + zip in dist/
 make pot       # refresh po/glass-dock.pot and merge the translations
 ```
@@ -90,6 +91,10 @@ can drive the shell through `org.gnome.Shell.Eval`. Scenarios cover
 enable/disable cycles, launching, indicators, previews, App Exposé, drag and
 drop, auto-hide, the Downloads stack, the Trash, fitting the screen, two
 monitors and scale 2. `SCREENSHOTS=dir` also saves screenshots.
+
+`tests/container/run-gnome50.sh` runs the same scenarios against GNOME
+Shell 50 in a rootless podman container (Fedora 44, systemd as init so the
+shell has a system bus and logind). The source tree is mounted read-only.
 
 ### Layout
 
@@ -109,8 +114,11 @@ monitors and scale 2. `SCREENSHOTS=dir` also saves screenshots.
 | `src/trash.js` | Trash |
 | `prefs.js` | Preferences (libadwaita) |
 
-### Notes on GNOME Shell 51
+### Notes on GNOME Shell 50 and 51
 
+- GNOME 51 renamed `St.ButtonMask.ONE`/`TWO` to `PRIMARY`/`MIDDLE` and warns on
+  the old names; GNOME 50 only has the old ones, so the code picks whichever
+  exists.
 - Clutter 51 no longer emits `button-press-event` or `key-press-event`; use the
   generic `event` signal or gestures (`Clutter.ClickGesture`,
   `LongPressGesture`). `motion-event` and `scroll-event` still work.
@@ -134,7 +142,7 @@ monitors and scale 2. `SCREENSHOTS=dir` also saves screenshots.
 
 ## Português (Brasil)
 
-Dock flutuante e translúcido para o GNOME Shell 51, inspirado no Dock do
+Dock flutuante e translúcido para o GNOME Shell 50 e 51, inspirado no Dock do
 macOS. Tem vidro com desfoque, magnificação, um ponto por janela, prévias de
 janelas e App Exposé quando o app tem várias janelas, ocultação automática,
 pilha de Downloads, Lixeira e escolha de monitor. A interface está em inglês,

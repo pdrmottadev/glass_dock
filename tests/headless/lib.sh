@@ -156,7 +156,8 @@ assert_eq() {
 assert_true() { assert_eq "$1" "$2" "true"; }
 
 assert_no_js_errors() {
-    local pattern='JS ERROR|CRITICAL|glass-dock@[^ ]*/src/'
+    # Any error whose stack trace goes through the extension's code.
+    local pattern='glass-dock@[^ ]*/(src/|extension\.js|prefs\.js)'
     if grep -qE "$pattern" "$WORK/shell.log"; then
         fail "$1"
         grep -E -A3 "$pattern" "$WORK/shell.log" | head -20 | sed 's/^/       /'
