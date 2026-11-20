@@ -47,7 +47,7 @@ pot:
 	xgettext --from-code=UTF-8 --language=JavaScript --keyword=_ \
 		--add-comments=Translators --package-name=$(DOMAIN) \
 		--package-version=$(VERSION) \
-		--msgid-bugs-address=https://github.com/pdrmottadev/glass-dock/issues \
+		--msgid-bugs-address=https://github.com/pdrmottadev/glass_dock/issues \
 		-o po/$(DOMAIN).pot $(JS)
 	@for l in $(LANGS); do msgmerge --update --backup=none po/$$l.po po/$(DOMAIN).pot; done
 

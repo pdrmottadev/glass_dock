@@ -52,7 +52,7 @@ A floating, translucent dock for GNOME Shell 51, inspired by the macOS dock.
 ## Install
 
 1. Download `glass-dock-vX.Y.zip` from the
-   [releases page](https://github.com/pdrmottadev/glass-dock/releases).
+   [releases page](https://github.com/pdrmottadev/glass_dock/releases).
 2. Install it:
    ```sh
    gnome-extensions install --force glass-dock-v1.0.zip
