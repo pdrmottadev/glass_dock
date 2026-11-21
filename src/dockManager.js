@@ -28,6 +28,11 @@ const LIVE_KEYS = new Set([
     'click-action',
     'multi-window-action',
     'bounce-on-launch',
+    'magnification-in-time',
+    'magnification-out-time',
+    'magnification-follow-time',
+    'magnification-spread',
+    'magnification-elasticity',
 ]);
 
 // Other docks that would show up next to ours.
@@ -69,7 +74,10 @@ export class DockManager {
 
     _build() {
         this._dock?.destroy();
-        this._dock = new Dock(this._settings, this._model, {dark: this._dark});
+        this._dock = new Dock(this._settings, this._model, {
+            dark: this._dark,
+            interfaceSettings: this._interfaceSettings,
+        });
         this._syncOverviewDashSpace();
         this._checkConflicts();
     }

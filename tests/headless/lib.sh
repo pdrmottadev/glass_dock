@@ -43,6 +43,8 @@ start_shell() {
     gsettings set org.gnome.shell disable-user-extensions false
     gsettings set org.gnome.shell enabled-extensions "['test-helper@local', '$UUID']"
     gsettings set org.gnome.shell welcome-dialog-last-shown-version '999'
+    # The virtual pointer starts at (0, 0), right on the hot corner.
+    gsettings set org.gnome.desktop.interface enable-hot-corners false
 
     local monitors=("$@")
     [ ${#monitors[@]} -eq 0 ] && monitors=(--virtual-monitor 1600x1000)
@@ -61,9 +63,23 @@ start_shell() {
     [ "$(ev '1' 2>/dev/null)" = "1" ] || { echo "shell did not start"; cat "$WORK/shell.log"; return 1; }
     sleep 1
     ev "$(cat "$HERE/prelude.js")" > /dev/null
-    ev 'Main.overview.hide(); Main.messageTray._bannerBin.hide(); "ok"' > /dev/null
+    # REMOTE=1 keeps GNOME's animations inhibited, as in a remote desktop session.
+    [ -n "${REMOTE:-}" ] && ev 'imports.gi.St.Settings.get().inhibit_animations(); true' > /dev/null
+    ev 'Main.messageTray._bannerBin.hide(); "ok"' > /dev/null
     move 800 500
-    sleep 0.5
+    # The session opens the overview during startup, possibly after this point,
+    # so it only counts as closed once it has stayed closed for a moment.
+    wait_for '!Main.layoutManager._startingUp' 60
+    local closed=0
+    for i in $(seq 1 60); do
+        if [ "$(ev 'Main.overview.hide(); !Main.overview.visible && Main.modalCount === 0')" = "true" ]; then
+            closed=$((closed + 1))
+            [ "$closed" -ge 6 ] && break
+        else
+            closed=0
+        fi
+        sleep 0.25
+    done
 }
 
 stop_shell() {
@@ -87,6 +103,8 @@ ev() {
 
 gset() { gsettings --schemadir "$ROOT/schemas" set "$SCHEMA" "$1" "$2"; sleep 0.6; }
 
+greset() { gsettings --schemadir "$ROOT/schemas" reset "$SCHEMA" "$1"; sleep 0.3; }
+
 move() { ev "__gd.move($1, $2)" > /dev/null; }
 
 # click X Y [button] — hover first so the target sees the pointer, then click.
@@ -104,7 +122,8 @@ click_item() {
     # Rest the pointer away from the dock first: centers computed while the
     # dock is magnified would not match once the pointer moves.
     move 800 300
-    sleep 0.5
+    wait_for '__gd.dock()._magAmount.value === 0'
+    sleep 0.1
     local xy
     xy=$(ev "__gd.center('$1').join(' ')")
     # shellcheck disable=SC2086

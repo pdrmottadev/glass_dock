@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: glass-dock 1.0\n"
+"Project-Id-Version: glass-dock 1.0.3\n"
 "Report-Msgid-Bugs-To: https://github.com/pdrmottadev/glass_dock/issues\n"
-"POT-Creation-Date: 2026-11-20 18:49-0300\n"
+"POT-Creation-Date: 2026-11-21 09:55-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,242 +17,286 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: prefs.js:71
+#: prefs.js:72
 msgid "Primary monitor"
 msgstr ""
 
-#: prefs.js:84
+#: prefs.js:85
 #, javascript-format
 msgid "%s (disconnected)"
 msgstr ""
 
-#: prefs.js:95
+#: prefs.js:96
 msgid "Appearance"
 msgstr ""
 
-#: prefs.js:99
+#: prefs.js:100
 msgid "Position and Size"
 msgstr ""
 
-#: prefs.js:100
+#: prefs.js:101
 msgid "Screen edge"
 msgstr ""
 
-#: prefs.js:101
+#: prefs.js:102
 msgid "Bottom"
 msgstr ""
 
-#: prefs.js:102
+#: prefs.js:103
 msgid "Left"
 msgstr ""
 
-#: prefs.js:103
+#: prefs.js:104
 msgid "Right"
 msgstr ""
 
-#: prefs.js:105
+#: prefs.js:106
 msgid "Monitor"
 msgstr ""
 
-#: prefs.js:106
+#: prefs.js:107
 msgid "Icon size"
 msgstr ""
 
-#: prefs.js:107
+#: prefs.js:108
 msgid "In pixels; icons shrink automatically when they do not fit"
 msgstr ""
 
-#: prefs.js:110
+#: prefs.js:111
 msgid "Magnification"
 msgstr ""
 
-#: prefs.js:111
+#: prefs.js:112
 msgid "Magnify icons on hover"
 msgstr ""
 
-#: prefs.js:112
+#: prefs.js:113
 msgid "Maximum size"
 msgstr ""
 
-#: prefs.js:112
+#: prefs.js:113
 msgid "In pixels"
 msgstr ""
 
-#: prefs.js:117
-msgid "Glass"
-msgstr ""
-
-#: prefs.js:118
-msgid "Blur the background"
-msgstr ""
-
 #: prefs.js:119
-msgid "Opacity"
+msgid "Zoom Animation"
 msgstr ""
 
 #: prefs.js:120
-msgid "Running indicators"
+msgid "Changes apply right away: move the pointer over the dock to try them."
 msgstr ""
 
-#: prefs.js:121
-msgid "One dot per open window"
-msgstr ""
-
-#: prefs.js:128
-msgid "Behavior"
-msgstr ""
-
-#: prefs.js:132
-msgid "Auto-hide"
-msgstr ""
-
-#: prefs.js:133
-msgid "Mode"
-msgstr ""
-
-#: prefs.js:134
-msgid "Never hide"
-msgstr ""
-
-#: prefs.js:135
-msgid "Always hide (show at screen edge)"
+#: prefs.js:130
+msgid "Restore Defaults"
 msgstr ""
 
 #: prefs.js:136
-msgid "Hide when a window overlaps"
+msgid "Time to zoom in"
 msgstr ""
 
-#: prefs.js:138
-msgid "Hide delay"
-msgstr ""
-
-#: prefs.js:138
+#: prefs.js:137 prefs.js:139 prefs.js:170
 msgid "In milliseconds"
 msgstr ""
 
+#: prefs.js:138
+msgid "Time to zoom out"
+msgstr ""
+
+#: prefs.js:140
+msgid "Pointer follow delay"
+msgstr ""
+
+#: prefs.js:141
+msgid "In milliseconds; 0 follows the pointer exactly"
+msgstr ""
+
+#: prefs.js:142
+msgid "Wave width"
+msgstr ""
+
+#: prefs.js:143
+msgid "How many icons to each side grow"
+msgstr ""
+
+#: prefs.js:144
+msgid "Elasticity"
+msgstr ""
+
+#: prefs.js:145
+msgid "0 stops smoothly; higher values overshoot a little"
+msgstr ""
+
 #: prefs.js:149
-msgid "Clicking an Already Focused App"
+msgid "Glass"
 msgstr ""
 
 #: prefs.js:150
+msgid "Blur the background"
+msgstr ""
+
+#: prefs.js:151
+msgid "Opacity"
+msgstr ""
+
+#: prefs.js:152
+msgid "Running indicators"
+msgstr ""
+
+#: prefs.js:153
+msgid "One dot per open window"
+msgstr ""
+
+#: prefs.js:160
+msgid "Behavior"
+msgstr ""
+
+#: prefs.js:164
+msgid "Auto-hide"
+msgstr ""
+
+#: prefs.js:165
+msgid "Mode"
+msgstr ""
+
+#: prefs.js:166
+msgid "Never hide"
+msgstr ""
+
+#: prefs.js:167
+msgid "Always hide (show at screen edge)"
+msgstr ""
+
+#: prefs.js:168
+msgid "Hide when a window overlaps"
+msgstr ""
+
+#: prefs.js:170
+msgid "Hide delay"
+msgstr ""
+
+#: prefs.js:181
+msgid "Clicking an Already Focused App"
+msgstr ""
+
+#: prefs.js:182
 msgid ""
 "Clicking an app in the background brings all of its windows to the front."
 msgstr ""
 
-#: prefs.js:152
+#: prefs.js:184
 msgid "With one window"
 msgstr ""
 
-#: prefs.js:153
+#: prefs.js:185
 msgid "Minimize"
 msgstr ""
 
-#: prefs.js:154
+#: prefs.js:186
 msgid "Do nothing"
 msgstr ""
 
-#: prefs.js:156
+#: prefs.js:188
 msgid "With several windows"
 msgstr ""
 
-#: prefs.js:157
+#: prefs.js:189
 msgid "Window previews"
 msgstr ""
 
-#: prefs.js:158
+#: prefs.js:190
 msgid "App Exposé"
 msgstr ""
 
-#: prefs.js:159
+#: prefs.js:191
 msgid "Cycle through windows"
 msgstr ""
 
-#: prefs.js:160
+#: prefs.js:192
 msgid "Minimize all"
 msgstr ""
 
-#: prefs.js:164
+#: prefs.js:196
 msgid "Icons"
 msgstr ""
 
-#: prefs.js:165
+#: prefs.js:197
 msgid "Bounce when launching an app"
 msgstr ""
 
-#: prefs.js:166
+#: prefs.js:198
 msgid "Show Applications button"
 msgstr ""
 
-#: prefs.js:173
+#: prefs.js:205
 msgid "Right Section"
 msgstr ""
 
-#: prefs.js:177
+#: prefs.js:209
 msgid "Recent Apps"
 msgstr ""
 
-#: prefs.js:178
+#: prefs.js:210
 msgid "Show recently used apps"
 msgstr ""
 
-#: prefs.js:179
+#: prefs.js:211
 msgid "How many"
 msgstr ""
 
-#: prefs.js:184
+#: prefs.js:216
 msgid "Folders"
 msgstr ""
 
-#: prefs.js:185
+#: prefs.js:217
 msgid "Show Downloads stack"
 msgstr ""
 
-#: prefs.js:186
+#: prefs.js:218
 msgid "Show Downloads as"
 msgstr ""
 
-#: prefs.js:187 src/stacks.js:253
+#: prefs.js:219 src/stacks.js:256
 msgid "Fan"
 msgstr ""
 
-#: prefs.js:188 src/stacks.js:254
+#: prefs.js:220 src/stacks.js:257
 msgid "Grid"
 msgstr ""
 
-#: prefs.js:190
+#: prefs.js:222
 msgid "Show Trash"
 msgstr ""
 
-#: src/dockItem.js:345
+#: src/dockItem.js:361
 msgid "Show All Windows"
 msgstr ""
 
-#: src/dockItem.js:559
+#: src/dockItem.js:575
 msgid "Applications"
 msgstr ""
 
-#: src/dockManager.js:84
+#: src/dockManager.js:89
 msgid "Another dock is enabled"
 msgstr ""
 
-#: src/dockManager.js:85
+#: src/dockManager.js:90
 #, javascript-format
 msgid "%s is enabled too. Disable it to avoid two docks on screen."
 msgstr ""
 
-#: src/stacks.js:114 src/stacks.js:193
+#: src/stacks.js:117 src/stacks.js:196
 msgid "Open in Files"
 msgstr ""
 
-#: src/stacks.js:167
+#: src/stacks.js:170
 msgid "No files"
 msgstr ""
 
-#: src/stacks.js:251
+#: src/stacks.js:254
 msgid "Open Folder"
 msgstr ""
 
-#: src/stacks.js:252
+#: src/stacks.js:255
 msgid "View as"
 msgstr ""
 
@@ -293,6 +337,6 @@ msgstr ""
 msgid "Could not open %s"
 msgstr ""
 
-#: src/windowPreviews.js:154
+#: src/windowPreviews.js:157
 msgid "Close Window"
 msgstr ""

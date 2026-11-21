@@ -128,6 +128,10 @@ shell has a system bus and logind). The source tree is mounted read-only.
   includes non-reactive actors. That is why the dock's root actor is 1×1 px
   and the struts actor sits below the dock: a large invisible actor on top
   would swallow every drop.
+- GNOME inhibits animations in remote sessions. The dock's own animations go
+  through `Dock.ease()`, which passes `animationRequired` so they follow the
+  user's `enable-animations` preference instead. Animations owned by GNOME,
+  such as minimizing a window or opening its menus, stay off there.
 - When activating a window outside an event (for example after an
   animation), pass the click's timestamp to `Main.activateWindow(w, time)`.
   With time 0 the window's user time is not updated and the most-recently-used

@@ -121,25 +121,23 @@ class StackPopup {
             this._layer.add_child(actor);
             const [, natW] = actor.get_preferred_width(-1);
             const [, natH] = actor.get_preferred_height(natW);
-            // Arc: bends to the right and tilts as it goes up.
+            // Arc: bends to the right as it goes up. The entries stay upright:
+            // rotated text and thumbnails get jagged, as nothing antialiases them.
             const bend = i * i * 1.3;
             const iconCenterX = this._anchor.x + bend;
             const y = this._anchor.top - 12 - (i + 1) * step + (step - natH) / 2;
             const x = iconCenterX + size / 2 + 6 - natW; // icon column aligned
             actor.set_position(Math.round(x), Math.round(y));
             actor.set_pivot_point(1 - (size / 2 + 6) / natW, 0.5);
-            const angle = -i * 1.2;
 
             actor.opacity = 0;
             actor.translation_y = this._anchor.y - y;
             actor.set_scale(0.4, 0.4);
-            actor.rotation_angle_z = 0;
-            actor.ease({
+            this._dock.ease(actor, {
                 opacity: 255,
                 translation_y: 0,
                 scale_x: 1,
                 scale_y: 1,
-                rotation_angle_z: angle,
                 delay: i * 14,
                 duration: 260,
                 mode: Clutter.AnimationMode.EASE_OUT_BACK,
@@ -203,14 +201,20 @@ class StackPopup {
         panel.opacity = 0;
         panel.set_pivot_point(0.5, 1);
         panel.set_scale(0.9, 0.9);
-        panel.ease({opacity: 255, scale_x: 1, scale_y: 1, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        this._dock.ease(panel, {
+            opacity: 255,
+            scale_x: 1,
+            scale_y: 1,
+            duration: 200,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
         this._entries.push(panel);
     }
 
     _animateOut() {
         this._item.onPopupClosed(this);
         for (const actor of this._entries) {
-            actor.ease({
+            this._dock.ease(actor, {
                 opacity: 0,
                 scale_x: 0.6,
                 scale_y: 0.6,

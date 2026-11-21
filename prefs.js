@@ -40,10 +40,11 @@ function switchRow(settings, key, title, subtitle = '') {
     return row;
 }
 
-function spinRow(settings, key, title, subtitle, lower, upper, step) {
+function spinRow(settings, key, title, subtitle, lower, upper, step, digits = 0) {
     const row = new Adw.SpinRow({
         title,
         subtitle,
+        digits,
         adjustment: new Gtk.Adjustment({lower, upper, step_increment: step, page_increment: step * 4}),
     });
     settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
@@ -113,6 +114,37 @@ export default class GlassDockPreferences extends ExtensionPreferences {
         settings.bind('magnification-enabled', magSize, 'sensitive', Gio.SettingsBindFlags.GET);
         mag.add(magSize);
         look.add(mag);
+
+        const motion = new Adw.PreferencesGroup({
+            title: _('Zoom Animation'),
+            description: _('Changes apply right away: move the pointer over the dock to try them.'),
+        });
+        const motionKeys = [
+            'magnification-in-time',
+            'magnification-out-time',
+            'magnification-follow-time',
+            'magnification-spread',
+            'magnification-elasticity',
+        ];
+        const resetButton = new Gtk.Button({
+            label: _('Restore Defaults'),
+            valign: Gtk.Align.CENTER,
+            css_classes: ['flat'],
+        });
+        resetButton.connect('clicked', () => motionKeys.forEach(key => settings.reset(key)));
+        motion.set_header_suffix(resetButton);
+        motion.add(spinRow(settings, 'magnification-in-time', _('Time to zoom in'),
+            _('In milliseconds'), 50, 5000, 10));
+        motion.add(spinRow(settings, 'magnification-out-time', _('Time to zoom out'),
+            _('In milliseconds'), 50, 5000, 10));
+        motion.add(spinRow(settings, 'magnification-follow-time', _('Pointer follow delay'),
+            _('In milliseconds; 0 follows the pointer exactly'), 0, 3000, 10));
+        motion.add(spinRow(settings, 'magnification-spread', _('Wave width'),
+            _('How many icons to each side grow'), 1.5, 6, 0.5, 1));
+        motion.add(spinRow(settings, 'magnification-elasticity', _('Elasticity'),
+            _('0 stops smoothly; higher values overshoot a little'), 0, 100, 5));
+        settings.bind('magnification-enabled', motion, 'sensitive', Gio.SettingsBindFlags.GET);
+        look.add(motion);
 
         const glass = new Adw.PreferencesGroup({title: _('Glass')});
         glass.add(switchRow(settings, 'blur-enabled', _('Blur the background')));

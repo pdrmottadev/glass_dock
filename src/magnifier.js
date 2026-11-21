@@ -22,6 +22,36 @@ export function influence(distance, radius) {
 }
 
 /**
+ * Advances a damped spring by `dt` seconds. It keeps its velocity when the
+ * target changes, so motion never jerks. This is the exact solution, so the
+ * result does not depend on the frame rate.
+ *
+ * @param {{value: number, velocity: number}} spring updated in place
+ * @param {number} target value the spring is pulled towards
+ * @param {number} rate   stiffness in 1/s; higher settles faster
+ * @param {number} dt     time step in seconds
+ * @param {number} [damping] 1 settles without overshooting; lower overshoots
+ */
+export function stepSpring(spring, target, rate, dt, damping = 1) {
+    const offset = spring.value - target;
+    const velocity = spring.velocity;
+    if (damping >= 1) {
+        const k = velocity + rate * offset;
+        const decay = Math.exp(-rate * dt);
+        spring.value = target + (offset + k * dt) * decay;
+        spring.velocity = (velocity - k * rate * dt) * decay;
+        return;
+    }
+    const decayRate = damping * rate;
+    const frequency = rate * Math.sqrt(1 - damping * damping);
+    const b = (velocity + decayRate * offset) / frequency;
+    const decay = Math.exp(-decayRate * dt);
+    const cos = Math.cos(frequency * dt), sin = Math.sin(frequency * dt);
+    spring.value = target + decay * (offset * cos + b * sin);
+    spring.velocity = decay * (velocity * cos - (decayRate * b + frequency * offset) * sin);
+}
+
+/**
  * Computes magnified sizes and positions for a row of items.
  *
  * Scales are computed against the *unmagnified* layout so the effect does not

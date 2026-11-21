@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.3 — 2026-11-21
+
+- The zoom now moves like a spring: it keeps its speed when the pointer
+  reverses, follows the pointer with a slight, soft lag, and settles without
+  a hard stop. Icons move in sub-pixels and the wave is a little wider.
+- All dock animations now work in remote desktop sessions: zoom, launch
+  bounce, icons appearing, tooltips, auto-hide, Downloads, window previews and
+  App Exposé. GNOME turns animations off there, so they jumped straight to
+  the end whatever the settings said. They now follow the user's animation
+  preference.
+- New *Zoom Animation* preferences, applied right away: time to zoom in and
+  out, pointer follow delay, wave width and elasticity, with a button to
+  restore the defaults.
+- Sharper dock: icons at rest are drawn at their exact size instead of being
+  scaled down from the magnified version, which left jagged edges.
+- Sharper Downloads fan: it keeps its arc, but entries are no longer tilted,
+  which made text and thumbnails jagged.
+- New zoom defaults: 90 px maximum size, 400 ms to zoom in and out, 200 ms
+  pointer follow delay, wave width of 2.5 icons and elasticity of 5.
+
 ## 1.0.2 — 2026-11-21
 
 - The magnification now stays in place while the Downloads stack or the

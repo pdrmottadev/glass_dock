@@ -90,7 +90,7 @@ export class WindowPreviewsPopup {
         this._panel.set_pivot_point(px, py);
         this._panel.opacity = 0;
         this._panel.set_scale(0.92, 0.92);
-        this._panel.ease({
+        this._dock.ease(this._panel, {
             opacity: 255,
             scale_x: 1,
             scale_y: 1,
@@ -199,7 +199,7 @@ export class WindowPreviewsPopup {
     }
 
     _animateOut() {
-        this._panel.ease({
+        this._dock.ease(this._panel, {
             opacity: 0,
             scale_x: 0.92,
             scale_y: 0.92,

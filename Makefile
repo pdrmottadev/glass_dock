@@ -49,7 +49,7 @@ pot:
 		--package-version=$(VERSION) \
 		--msgid-bugs-address=https://github.com/pdrmottadev/glass_dock/issues \
 		-o po/$(DOMAIN).pot $(JS)
-	@for l in $(LANGS); do msgmerge --update --backup=none po/$$l.po po/$(DOMAIN).pot; done
+	@for l in $(LANGS); do msgmerge --update --no-fuzzy-matching --backup=none po/$$l.po po/$(DOMAIN).pot; done
 
 lint:
 	npx eslint .

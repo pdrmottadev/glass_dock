@@ -73,7 +73,8 @@ class DockItem extends St.Button {
         this._content = new St.Widget({x_expand: true, y_expand: true});
         this.set_child(this._content);
 
-        this._iconActor = this.createIconActor(dock.metrics.magSize);
+        this._renderSize = dock.metrics.magSize;
+        this._iconActor = this.createIconActor(this._renderSize);
         this._content.add_child(this._iconActor);
 
         // Running indicator: one dot per window (up to MAX_DOTS).
@@ -122,6 +123,11 @@ class DockItem extends St.Button {
         return this._iconActor;
     }
 
+    /** Redraws the icon for this size in pixels. */
+    renderIconAt(size) {
+        this._iconActor.icon_size = size;
+    }
+
     getBaseMainSize(m) {
         return m.iconSize + m.spacing;
     }
@@ -134,15 +140,23 @@ class DockItem extends St.Button {
      * @param {number} crossSize item thickness (bar + magnification zone)
      * @param {number} scale     current magnification scale
      * @param {object} m         dock metrics
+     * @param {boolean} snap     at rest: draw the icon at its exact size, on whole pixels
      */
-    applyLayout(geom, center, crossSize, scale, m) {
-        const M = m.magSize;
-        const [ix, iy] = geom.rect(crossSize, center - M / 2, m.pad, M, M);
-        this._iconActor.set_position(Math.round(ix), Math.round(iy));
-        this._iconActor.set_size(M, M);
+    applyLayout(geom, center, crossSize, scale, m, snap) {
+        // At rest the icon is drawn at its exact size, pixel for pixel; scaling
+        // the large version down would leave jagged edges. It only switches
+        // to the large version while zooming.
+        const size = snap ? m.iconSize : m.magSize;
+        if (size !== this._renderSize) {
+            this._renderSize = size;
+            this.renderIconAt(size);
+        }
+        const [ix, iy] = geom.rect(crossSize, center - size / 2, m.pad, size, size);
+        this._iconActor.set_position(snap ? Math.round(ix) : ix, snap ? Math.round(iy) : iy);
+        this._iconActor.set_size(size, size);
         const [px, py] = geom.edgePivot;
         this._iconActor.set_pivot_point(px, py);
-        const k = (m.iconSize * scale * this.presence.value) / M;
+        const k = (m.iconSize * scale * this.presence.value) / size;
         this._iconActor.set_scale(k, k);
         this._iconActor.opacity = Math.round(255 * this.presence.value);
 
@@ -196,13 +210,13 @@ class DockItem extends St.Button {
             return;
         }
         this.presence.remove_transition('value');
-        this.presence.ease(1, {duration: PRESENCE_TIME, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        this._dock.easeValue(this.presence, 1, {duration: PRESENCE_TIME, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
     }
 
     vanish(onDone) {
         this.reactive = false;
         this.presence.remove_transition('value');
-        this.presence.ease(0, {
+        this._dock.easeValue(this.presence, 0, {
             duration: PRESENCE_TIME,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onStopped: onDone,
@@ -231,13 +245,13 @@ class DockItem extends St.Button {
             }
             count++;
             const [tx, ty] = this._dock.geom.outward(this._dock.metrics.iconSize * 0.45);
-            icon.ease({
+            this._dock.ease(icon, {
                 translation_x: tx,
                 translation_y: ty,
                 duration: BOUNCE_TIME,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 onComplete: () => {
-                    icon.ease({
+                    this._dock.ease(icon, {
                         translation_x: 0,
                         translation_y: 0,
                         duration: BOUNCE_TIME,
@@ -558,16 +572,21 @@ class DockAppsButton extends DockItem {
     }
 
     createIconActor(size) {
-        const tile = new St.Bin({
+        this._tileIcon = new St.Icon({
+            icon_name: 'view-app-grid-symbolic',
+            icon_size: Math.round(size * 0.52),
+            style_class: 'glass-dock-apps-tile-icon',
+        });
+        return new St.Bin({
             style_class: 'glass-dock-apps-tile',
             style: `border-radius: ${Math.round(size * 0.24)}px;`,
-            child: new St.Icon({
-                icon_name: 'view-app-grid-symbolic',
-                icon_size: Math.round(size * 0.52),
-                style_class: 'glass-dock-apps-tile-icon',
-            }),
+            child: this._tileIcon,
         });
-        return tile;
+    }
+
+    renderIconAt(size) {
+        this._iconActor.style = `border-radius: ${Math.round(size * 0.24)}px;`;
+        this._tileIcon.icon_size = Math.round(size * 0.52);
     }
 
     get labelText() {
@@ -620,12 +639,12 @@ class DockSeparator extends St.Widget {
             this.presence.value = 1;
             return;
         }
-        this.presence.ease(1, {duration: PRESENCE_TIME, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        this._dock.easeValue(this.presence, 1, {duration: PRESENCE_TIME, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
     }
 
     vanish(onDone) {
         this.presence.remove_transition('value');
-        this.presence.ease(0, {
+        this._dock.easeValue(this.presence, 0, {
             duration: PRESENCE_TIME,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onStopped: onDone,

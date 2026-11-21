@@ -27,8 +27,34 @@
     </key>
     <key name="magnification-size" type="i">
       <range min="32" max="160"/>
-      <default>96</default>
+      <default>90</default>
       <summary>Maximum magnified icon size in pixels</summary>
+    </key>
+    <key name="magnification-in-time" type="i">
+      <range min="50" max="5000"/>
+      <default>400</default>
+      <summary>Time for the zoom to grow, in milliseconds</summary>
+    </key>
+    <key name="magnification-out-time" type="i">
+      <range min="50" max="5000"/>
+      <default>400</default>
+      <summary>Time for the zoom to shrink, in milliseconds</summary>
+    </key>
+    <key name="magnification-follow-time" type="i">
+      <range min="0" max="3000"/>
+      <default>200</default>
+      <summary>Time for the zoom to catch up with the pointer, in milliseconds</summary>
+      <description>0 follows the pointer exactly.</description>
+    </key>
+    <key name="magnification-spread" type="d">
+      <range min="1.5" max="6.0"/>
+      <default>2.5</default>
+      <summary>How many icons to each side of the pointer grow</summary>
+    </key>
+    <key name="magnification-elasticity" type="i">
+      <range min="0" max="100"/>
+      <default>5</default>
+      <summary>How much the zoom overshoots before settling, from 0 to 100</summary>
     </key>
     <key name="glass-opacity" type="d">
       <range min="0.0" max="1.0"/>

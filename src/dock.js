@@ -20,17 +20,21 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {AutoHide} from './autohide.js';
 import {DockAppIcon, DockAppsButton, DockSeparator} from './dockItem.js';
 import {AppExpose} from './expose.js';
-import {computeLayout} from './magnifier.js';
+import {computeLayout, stepSpring} from './magnifier.js';
 import {DownloadsStack} from './stacks.js';
 import {TrashItem} from './trash.js';
 import {EdgeGeometry, getAppFromSource} from './utils.js';
 import {WindowPreviewsPopup} from './windowPreviews.js';
 
 const EDGE_MARGIN = 8;
-const MAGNIFY_IN_TIME = 240;
-const MAGNIFY_OUT_TIME = 320;
-const MAGNIFY_MIN_TIME = 80; // for short trips, e.g. reversing halfway
-const POINTER_GLIDE_TIME = 140;
+// A critically damped spring is within 0.4% of its target after 7.7 / rate
+// seconds, which turns the times in the settings into spring stiffness.
+const SETTLE_FACTOR = 7.7;
+const ZOOM_SETTLED = 0.004;
+const FOCUS_SETTLED = 0.25; // px
+// Elasticity 100 is a damping ratio of 0.45, about 20% of overshoot.
+const MAX_DAMPING_LOSS = 0.55;
+const MAX_ZOOM_OVERSHOOT = 1.25;
 const SLIDE_TIME = 240;
 const TOOLTIP_GAP = 10;
 const MIN_ICON_SIZE = 24;
@@ -45,8 +49,9 @@ function resolveMonitorIndex(connector) {
 }
 
 export class Dock {
-    constructor(settings, model, {dark}) {
+    constructor(settings, model, {dark, interfaceSettings}) {
         this.settings = settings;
+        this._interfaceSettings = interfaceSettings;
         this._model = model;
         this._dark = dark;
 
@@ -62,7 +67,6 @@ export class Dock {
         this._menuPending = false;
         this._popupOpen = false;
         this._magFrozen = false; // zoom held in place while a popup is open
-        this._magTarget = 0; // value the zoom is at or animating to
         this._shown = true;
         this._pointer = null; // [x, y] stage coords
         this._relayoutId = 0;
@@ -74,6 +78,18 @@ export class Dock {
         this._itemMap = new Map();
 
         this._buildActors();
+
+        this._readMotionSettings();
+        this.settings.connectObject(
+            'changed::magnification-in-time', () => this._readMotionSettings(),
+            'changed::magnification-out-time', () => this._readMotionSettings(),
+            'changed::magnification-follow-time', () => this._readMotionSettings(),
+            'changed::magnification-elasticity', () => this._readMotionSettings(),
+            'changed::magnification-spread', () => {
+                this.metrics = this._computeMetrics(this.metrics.iconSize);
+                this.queueRelayout();
+            },
+            this);
 
         this._model.connectObject('changed', () => this._rebuildItems(true), this);
         global.display.connectObject(
@@ -116,7 +132,7 @@ export class Dock {
             thickness,
             zone: magEnabled ? magSize - iconSize : 0,
             radius: Math.round(thickness * 0.38),
-            influence: (iconSize + spacing) * 2.6,
+            influence: (iconSize + spacing) * this.settings.get_double('magnification-spread'),
             margin: EDGE_MARGIN,
         };
     }
@@ -180,24 +196,19 @@ export class Dock {
         this._tooltip = new St.Label({style_class: 'glass-dock-tooltip', visible: false, opacity: 0});
         this._outer.add_child(this._tooltip);
 
-        this._magAmount = new St.Adjustment({actor: this._actor, lower: 0, upper: 1, value: 0});
-        this._magAmount.connect('notify::value', () => this.queueRelayout());
-
-        // Offset that glides the zoom to the pointer when a popup closes.
-        this._pointerShift = new St.Adjustment({
-            actor: this._actor,
-            lower: -Number.MAX_SAFE_INTEGER,
-            upper: Number.MAX_SAFE_INTEGER,
-            value: 0,
-        });
-        this._pointerShift.connect('notify::value', () => this.queueRelayout());
+        // Zoom amount (0..1) and the point on the dock it is centered on. Both
+        // are springs, advanced once per frame while they are moving.
+        this._magAmount = {value: 0, velocity: 0, target: 0};
+        this._focus = {value: null, velocity: 0, target: null};
+        this._motion = new Clutter.Timeline({actor: this._actor, duration: 1000, repeat_count: -1});
+        this._motion.connect('new-frame', () => this._stepMotion());
 
         this._actor.connect('motion-event', (actor, event) => {
             if (this._magFrozen)
                 return Clutter.EVENT_PROPAGATE;
             this._pointer = event.get_coords();
             if (this.metrics.magEnabled && !this.dragging)
-                this.queueRelayout();
+                this._aimFocus();
             return Clutter.EVENT_PROPAGATE;
         });
         this._actor.connect('notify::hover', () => this._onHoverChanged());
@@ -375,7 +386,7 @@ export class Dock {
      * Computes where everything goes for a zoom amount, without moving any
      * actor. Positions are exact (not rounded).
      */
-    _layoutFor(amount, pointerShift) {
+    _layoutFor(amount, focus) {
         const m = this.metrics;
         const geom = this.geom;
         const mon = this.monitor;
@@ -398,8 +409,8 @@ export class Dock {
         const baseStart = (monMain - baseLength) / 2;
 
         let pointer = null;
-        if (this._pointer && amount > 0)
-            pointer = geom.mainOf(...this._pointer) + pointerShift - monMainOrigin - baseStart;
+        if (focus !== null && amount > 0)
+            pointer = focus - monMainOrigin - baseStart;
 
         const layout = computeLayout({
             baseSizes: entries.map(e => e.base),
@@ -440,7 +451,7 @@ export class Dock {
         const geom = this.geom;
         const monCross = geom.vertical ? this.monitor.width : this.monitor.height;
         const amount = m.magEnabled ? this._magAmount.value : 0;
-        const L = this._layoutFor(amount, this._pointerShift.value);
+        const L = this._layoutFor(amount, this._focus.value);
         const {crossTotal} = L;
 
         // Round each edge once: rounding offsets and sizes at every level
@@ -472,7 +483,8 @@ export class Dock {
             p.item.set_position(itemX, itemY);
             p.item.set_size(Math.max(0, Math.round(w)), Math.max(0, Math.round(h)));
             const center = offset + p.pos + p.size / 2 - (geom.vertical ? itemY : itemX);
-            p.item.applyLayout(geom, center, crossTotal, p.scale, m);
+            // Sub-pixel while zooming; on whole pixels at rest, where it is sharper.
+            p.item.applyLayout(geom, center, crossTotal, p.scale, m, amount === 0);
         }
 
         this._lastLayout = L;
@@ -497,8 +509,8 @@ export class Dock {
 
     /** Like iconRectFor(), but where the icon ends up once the zoom settles. */
     settledIconRect(item) {
-        const amount = this.metrics.magEnabled ? this._magTarget : 0;
-        return this.iconRectFor(item, this._layoutFor(amount, 0));
+        const amount = this.metrics.magEnabled ? this._magAmount.target : 0;
+        return this.iconRectFor(item, this._layoutFor(amount, this._focus.target));
     }
 
     _updateIconGeometries() {
@@ -562,6 +574,8 @@ export class Dock {
         if (hovered) {
             const [x, y] = global.get_pointer();
             this._pointer = [x, y];
+            if (this.metrics.magEnabled)
+                this._aimFocus();
         }
         if (this.metrics.magEnabled) {
             const target = hovered && !this.dragging && !this._menuPending &&
@@ -574,24 +588,118 @@ export class Dock {
         this._autohide?.onHoverChanged(hovered);
     }
 
-    /** Animates the zoom, slow at both ends; a no-op if already heading there. */
+    /** Sets where the zoom is heading; a no-op if it already is. */
     _easeMagnification(target) {
-        if (target === this._magTarget)
+        if (target === this._magAmount.target)
             return;
-        this._magTarget = target;
-        this._magAmount.remove_transition('value');
-        const fullTime = target ? MAGNIFY_IN_TIME : MAGNIFY_OUT_TIME;
-        const distance = Math.abs(target - this._magAmount.value);
-        this._magAmount.ease(target, {
-            duration: Math.max(MAGNIFY_MIN_TIME, fullTime * distance),
-            mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
-        });
+        this._magAmount.target = target;
+        this._startMotion();
     }
 
     _resetMagnification() {
-        this._magTarget = 0;
-        this._magAmount.remove_transition('value');
-        this._magAmount.value = 0;
+        Object.assign(this._magAmount, {value: 0, velocity: 0, target: 0});
+    }
+
+    /** Makes the zoom follow the pointer (it starts there when at rest). */
+    _aimFocus() {
+        const main = this.geom.mainOf(...this._pointer);
+        const focus = this._focus;
+        focus.target = main;
+        if (focus.value === null || this._magAmount.value === 0) {
+            focus.value = main;
+            focus.velocity = 0;
+        }
+        this._startMotion();
+    }
+
+    _readMotionSettings() {
+        const s = this.settings;
+        const rateFor = key => SETTLE_FACTOR * 1000 / s.get_int(key);
+        const follow = s.get_int('magnification-follow-time');
+        this._motionConfig = {
+            inRate: rateFor('magnification-in-time'),
+            outRate: rateFor('magnification-out-time'),
+            followRate: follow > 0 ? SETTLE_FACTOR * 1000 / follow : 0,
+            damping: 1 - MAX_DAMPING_LOSS * s.get_int('magnification-elasticity') / 100,
+        };
+    }
+
+    /**
+     * GNOME inhibits all animations in remote sessions to save bandwidth,
+     * which St.Settings reports as disabled. The dock's animations are small
+     * and part of how it works, so they follow the user's own preference
+     * instead and are only skipped without hardware acceleration.
+     */
+    get canAnimate() {
+        return this._interfaceSettings.get_boolean('enable-animations') &&
+            global.backend.is_rendering_hardware_accelerated();
+    }
+
+    /** Like actor.ease(), honoring canAnimate. */
+    ease(actor, params) {
+        actor.ease({...params, animationRequired: this.canAnimate});
+    }
+
+    /** Like adjustment.ease(), honoring canAnimate. */
+    easeValue(adjustment, target, params) {
+        adjustment.ease(target, {...params, animationRequired: this.canAnimate});
+    }
+
+    _startMotion() {
+        if (this._destroyed)
+            return;
+        if (!this._actor.mapped || !this.canAnimate) {
+            this._settleMotion();
+            this.queueRelayout();
+        } else if (!this._motion.is_playing()) {
+            this._motion.start();
+        }
+    }
+
+    _settleMotion() {
+        const zoom = this._magAmount, focus = this._focus;
+        zoom.value = zoom.target;
+        zoom.velocity = 0;
+        focus.value = focus.target;
+        focus.velocity = 0;
+    }
+
+    _stepMotion() {
+        // Whole refresh intervals: evenly spaced steps look smoother than
+        // following the small timing jitter of each frame.
+        const [view] = this._actor.peek_stage_views();
+        if (!view)
+            return;
+        const period = 1 / view.get_refresh_rate();
+        const dt = Math.min(4, Math.max(1, Math.round(this._motion.get_delta() / 1000 / period))) * period;
+
+        const zoom = this._magAmount, focus = this._focus;
+        const {inRate, outRate, followRate, damping} = this._motionConfig;
+        const zoomRate = zoom.target ? inRate : outRate;
+        stepSpring(zoom, zoom.target, zoomRate, dt, damping);
+        const zoomMax = damping < 1 ? MAX_ZOOM_OVERSHOOT : 1;
+        if (zoom.value < 0 || zoom.value > zoomMax) {
+            zoom.value = Math.max(0, Math.min(zoomMax, zoom.value));
+            zoom.velocity = 0;
+        }
+        if (focus.value !== null) {
+            if (followRate > 0) {
+                stepSpring(focus, focus.target, followRate, dt);
+            } else {
+                focus.value = focus.target;
+                focus.velocity = 0;
+            }
+        }
+
+        const settled = Math.abs(zoom.value - zoom.target) < ZOOM_SETTLED &&
+            Math.abs(zoom.velocity) < ZOOM_SETTLED * zoomRate &&
+            (focus.value === null || (Math.abs(focus.value - focus.target) < FOCUS_SETTLED &&
+             Math.abs(focus.velocity) <= FOCUS_SETTLED * followRate));
+        if (settled) {
+            this._settleMotion();
+            this._motion.stop();
+        }
+        this._relayout();
     }
 
     // ---- Tooltip ---------------------------------------------------------
@@ -602,7 +710,7 @@ export class Dock {
             this._tooltip.text = item.labelText;
             this._tooltip.show();
             this._tooltip.remove_transition('opacity');
-            this._tooltip.ease({opacity: 255, duration: 120, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+            this.ease(this._tooltip, {opacity: 255, duration: 120, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
             this._positionTooltip();
         } else if (this._tooltipItem === item) {
             this.hideTooltip();
@@ -639,7 +747,7 @@ export class Dock {
     hideTooltip() {
         this._tooltipItem = null;
         this._tooltip.remove_transition('opacity');
-        this._tooltip.ease({
+        this.ease(this._tooltip, {
             opacity: 0,
             duration: 100,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
@@ -681,9 +789,8 @@ export class Dock {
     }
 
     /**
-     * Releases the zoom held by a popup and glides it to where the pointer
-     * is now. Hover is stale right after the grab ends, so this checks the
-     * pointer position instead.
+     * Releases the zoom held by a popup. Hover is stale right after the grab
+     * ends, so this checks the pointer position instead.
      *
      * @returns {boolean} whether the pointer is over the dock
      */
@@ -693,16 +800,6 @@ export class Dock {
         const [ok, localX, localY] = this._actor.transform_stage_point(x, y);
         const over = ok && localX >= 0 && localY >= 0 &&
             localX < this._actor.width && localY < this._actor.height;
-        if (over) {
-            const shift = this._pointerShift.value +
-                this.geom.mainOf(...this._pointer) - this.geom.mainOf(x, y);
-            this._pointerShift.remove_transition('value');
-            this._pointerShift.value = shift;
-            this._pointerShift.ease(0, {
-                duration: POINTER_GLIDE_TIME,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-        }
         return over;
     }
 
@@ -757,7 +854,7 @@ export class Dock {
             this._actor.set({translation_x: 0, translation_y: 0, opacity: 255});
             return;
         }
-        this._actor.ease({
+        this.ease(this._actor, {
             translation_x: 0,
             translation_y: 0,
             opacity: 255,
@@ -779,7 +876,7 @@ export class Dock {
             this._actor.hide();
             return;
         }
-        this._actor.ease({
+        this.ease(this._actor, {
             translation_x: tx,
             translation_y: ty,
             opacity: 0,
@@ -812,7 +909,7 @@ export class Dock {
         this.hideTooltip();
         this._resetMagnification();
         item.presence.remove_transition('value');
-        item.presence.ease(0, {duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        this.easeValue(item.presence, 0, {duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
 
         if (item.app && this._model.isPinned(item.app) && !Main.overview.visible)
             this._addRemoveCatcher(item);
@@ -873,7 +970,7 @@ export class Dock {
         const clone = new Clutter.Clone({source: dragActor, x, y, width: w, height: h, reactive: false});
         clone.set_pivot_point(0.5, 0.5);
         Main.uiGroup.add_child(clone);
-        clone.ease({
+        this.ease(clone, {
             scale_x: 1.8,
             scale_y: 1.8,
             opacity: 0,
@@ -979,6 +1076,7 @@ export class Dock {
 
     destroy() {
         this._destroyed = true;
+        this._motion.stop();
         const laters = global.compositor.get_laters();
         for (const id of [this._relayoutId, this._dropLaterId]) {
             if (id)
@@ -988,6 +1086,7 @@ export class Dock {
         DND.removeDragMonitor(this._dragMonitor);
         this._autohide?.destroy();
         this._autohide = null;
+        this.settings.disconnectObject(this);
         this._model.disconnectObject(this);
         global.display.disconnectObject(this);
         this._removeCatcher();

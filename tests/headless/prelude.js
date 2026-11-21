@@ -105,6 +105,28 @@
             keyboard.notify_key(t + 1000, KEY_ESC, Clutter.KeyState.RELEASED);
             return true;
         },
+        // Counts the dock's animations that really started a transition.
+        watchEase() {
+            const dock = this.dock();
+            const stats = this._easeStats = {calls: 0, animated: 0};
+            const notProps = ['duration', 'delay', 'mode', 'onComplete', 'onStopped'];
+            dock.ease = (actor, params) => {
+                Object.getPrototypeOf(dock).ease.call(dock, actor, params);
+                stats.calls++;
+                const props = Object.keys(params).filter(p => !notProps.includes(p));
+                if (props.some(p => actor.get_transition(p.replaceAll('_', '-'))))
+                    stats.animated++;
+            };
+            return true;
+        },
+        resetEaseStats() {
+            this._easeStats.calls = this._easeStats.animated = 0;
+            return true;
+        },
+        stopWatchingEase() {
+            delete this.dock().ease;
+            return true;
+        },
         // Records the zoom and the position of an icon on every layout.
         recordZoom(key) {
             const dock = this.dock(), item = this.item(key);
@@ -133,6 +155,7 @@
                 peak: Math.max(...steps.map(([dv, dt]) => Math.abs(dv) / dt)),
                 monotonic: steps.every(([dv]) => dv > 0) || steps.every(([dv]) => dv < 0),
                 wobble: Math.max(...xs) - Math.min(...xs),
+                max: Math.max(...run.map(r => r[1])),
             };
             log.length = 0;
             return stats;

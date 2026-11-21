@@ -74,7 +74,11 @@ export class AppExpose {
             opacity: 0,
         });
         layer.add_child(this._veil);
-        this._veil.ease({opacity: 255, duration: ANIMATION_TIME, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        this._dock.ease(this._veil, {
+            opacity: 255,
+            duration: ANIMATION_TIME,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
 
         this._anchor = this._modal.anchorFor(item);
         this._build();
@@ -167,7 +171,7 @@ export class AppExpose {
             button.set_position(start.x, start.y);
             button.set_scale(start.scale, start.scale);
             button.opacity = start.opacity;
-            button.ease({
+            this._dock.ease(button, {
                 x: target.x,
                 y: target.y,
                 scale_x: scale,
@@ -188,7 +192,7 @@ export class AppExpose {
             const labelW = Math.min(natW, grid.cellW);
             label.set_width(labelW);
             label.set_position(Math.round(cx - labelW / 2), Math.round(cy + (frame.height * scale) / 2 + 10));
-            label.ease({
+            this._dock.ease(label, {
                 opacity: 255,
                 delay: ANIMATION_TIME / 2,
                 duration: 160,
@@ -199,7 +203,12 @@ export class AppExpose {
                 if (this.closed)
                     return;
                 const s = button.hover ? scale * HOVER_SCALE : scale;
-                button.ease({scale_x: s, scale_y: s, duration: 120, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+                this._dock.ease(button, {
+                    scale_x: s,
+                    scale_y: s,
+                    duration: 120,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
                 if (button.hover)
                     label.add_style_pseudo_class('hover');
                 else
@@ -216,16 +225,24 @@ export class AppExpose {
     }
 
     _animateOut() {
-        this._veil.ease({opacity: 0, duration: ANIMATION_TIME, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        this._dock.ease(this._veil, {
+            opacity: 0,
+            duration: ANIMATION_TIME,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
         const monitor = this._modal.monitor;
         for (const e of this._entries) {
-            e.label.ease({opacity: 0, duration: 100, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+            this._dock.ease(e.label, {
+                opacity: 0,
+                duration: 100,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
             const chosen = e.metaWindow === this._chosen;
             // The chosen window (or every visible one on cancel) flies back
             // to its real place; the others fade out.
             if ((chosen && !e.metaWindow.minimized) || (!this._chosen && e.onScreen)) {
                 const frame = e.metaWindow.get_frame_rect();
-                e.button.ease({
+                this._dock.ease(e.button, {
                     x: frame.x - monitor.x,
                     y: frame.y - monitor.y,
                     scale_x: 1,
@@ -234,7 +251,7 @@ export class AppExpose {
                     mode: Clutter.AnimationMode.EASE_OUT_QUINT,
                 });
             } else {
-                e.button.ease({
+                this._dock.ease(e.button, {
                     opacity: 0,
                     duration: ANIMATION_TIME * 0.7,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,

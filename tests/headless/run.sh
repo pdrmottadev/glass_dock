@@ -7,6 +7,7 @@
 #   tests/headless/run.sh dnd stacks      # only some scenarios
 #   SCREENSHOTS=docs/screenshots tests/headless/run.sh   # also save screenshots
 #   KEEP_WORK=1 tests/headless/run.sh     # keep the temporary dirs (logs)
+#   REMOTE=1 tests/headless/run.sh        # with animations inhibited, as in remote desktop
 #
 # Needs: gnome-shell (headless), dbus-daemon, gdbus, python3 (+ gi),
 # gnome-text-editor and gnome-calculator for the window scenarios.
@@ -263,6 +264,8 @@ scenario_stacks() {
     shot downloads-fan
     sleep 0.5
     assert_eq "the zoom stays while the fan is open" '__gd.dock()._magAmount.value' 1
+    assert_true "the fan stays upright, so text and thumbnails stay sharp" \
+        '__gd.overlays()[0].get_children().every(a => a.rotation_angle_z === 0)'
     assert_true "the fan is anchored to the magnified icon" \
         "__gd.dock().iconRectFor(__gd.item('downloads'))[2] > __gd.dock().metrics.iconSize"
     local frozen
@@ -320,8 +323,10 @@ scenario_zoom() {
     sleep 0.6
     ev "globalThis._zoom = __gd.zoomStats(); true" > /dev/null
     stats=$(ev 'JSON.stringify(_zoom)')
+    assert_eq "zooming uses the large icon" "__gd.item('app:$TE').iconActor.icon_size" \
+        "$(ev '__gd.dock().metrics.magSize')"
     assert_true "entering takes at least 200 ms ($stats)" '_zoom.duration >= 200'
-    assert_true "entering has no sudden jump" '_zoom.peak < 0.009'
+    assert_true "entering has no sudden jump" '_zoom.peak < 0.0105'
     assert_true "entering only grows" '_zoom.monotonic'
     assert_true "the icon under the pointer does not wobble" '_zoom.wobble <= 1'
 
@@ -330,16 +335,167 @@ scenario_zoom() {
     ev "globalThis._zoom = __gd.zoomStats(); true" > /dev/null
     stats=$(ev 'JSON.stringify(_zoom)')
     assert_true "leaving takes at least 280 ms ($stats)" '_zoom.duration >= 280'
-    assert_true "leaving has no sudden jump" '_zoom.peak < 0.007'
+    assert_true "leaving has no sudden jump" '_zoom.peak < 0.008'
     assert_true "leaving only shrinks" '_zoom.monotonic'
     assert_true "the icon does not wobble on the way out" '_zoom.wobble <= 1'
+    assert_true "at rest icons are drawn at their exact size" "(() => { const d = __gd.dock();
+        return d._items.filter(i => i.iconActor instanceof imports.gi.St.Icon).every(i =>
+            i.iconActor.icon_size === d.metrics.iconSize && i.iconActor.scale_x === 1 &&
+            Number.isInteger(i.iconActor.x) && Number.isInteger(i.iconActor.y)); })()"
+    assert_true "the Applications tile too" "(() => { const a = __gd.item('apps-button').iconActor;
+        return a.width === __gd.dock().metrics.iconSize && a.scale_x === 1; })()"
 
     move "$x" "$((y + 25))"
     sleep 0.12
     move 800 300
     wait_for '__gd.dock()._magAmount.value === 0'
     assert_eq "reversing halfway settles at rest" '__gd.dock()._magAmount.value' 0
+    sleep 0.1
+    ev "globalThis._zoom = __gd.zoomStats(); true" > /dev/null
+    assert_true "reversing halfway has no sudden jump" '_zoom.peak < 0.0105'
     ev '__gd.stopRecordingZoom()' > /dev/null
+}
+
+scenario_zoomconfig() {
+    section "Configurable zoom"
+    set_favorites "['$CALC', '$TE', '$FILES']"
+    move 800 300
+    wait_for '__gd.dock()._magAmount.value === 0'
+    local x y
+    read -r x y <<< "$(ev "__gd.center('app:$TE').join(' ')")"
+    ev "globalThis._d = __gd.dock(); __gd.recordZoom('app:$TE')" > /dev/null
+
+    # GNOME inhibits animations like this during remote desktop sessions.
+    ev 'imports.gi.St.Settings.get().inhibit_animations(); true' > /dev/null
+    assert_eq "(GNOME animations are inhibited, as in a remote session)" \
+        'imports.gi.St.Settings.get().enable_animations' false
+    move "$x" "$((y + 25))"
+    sleep 0.6
+    ev "globalThis._zoom = __gd.zoomStats(); true" > /dev/null
+    assert_true "the zoom still animates in a remote session" '_zoom.duration >= 200 && _zoom.peak < 0.0105'
+    move 800 300
+    wait_for '__gd.dock()._magAmount.value === 0'
+    sleep 0.1
+    ev "__gd.zoomStats(); imports.gi.St.Settings.get().uninhibit_animations(); true" > /dev/null
+
+    gsettings set org.gnome.desktop.interface enable-animations false
+    sleep 0.2
+    move "$x" "$((y + 25))"
+    sleep 0.15
+    assert_eq "turning animations off in GNOME makes the zoom instant" '__gd.dock()._magAmount.value' 1
+    move 800 300
+    sleep 0.15
+    assert_eq "in both directions" '__gd.dock()._magAmount.value' 0
+    gsettings reset org.gnome.desktop.interface enable-animations
+    sleep 0.2
+    ev '__gd._zoomLog.length = 0; true' > /dev/null
+
+    gset magnification-in-time 5000
+    assert_eq "times up to 5 seconds are accepted" '__gd.dock().settings.get_int("magnification-in-time")' 5000
+    greset magnification-in-time
+
+    gset magnification-in-time 800
+    gset magnification-out-time 120
+    assert_true "changing the values does not rebuild the dock" '__gd.dock() === _d'
+    move "$x" "$((y + 25))"
+    sleep 1.1
+    ev "globalThis._zoom = __gd.zoomStats(); true" > /dev/null
+    assert_true "a longer zoom-in time takes longer" '_zoom.duration >= 600'
+    move 800 300
+    sleep 0.5
+    ev "globalThis._zoom = __gd.zoomStats(); true" > /dev/null
+    assert_true "a shorter zoom-out time is quicker" '_zoom.duration <= 260'
+
+    greset magnification-in-time
+    greset magnification-out-time
+    gset magnification-elasticity 70
+    move "$x" "$((y + 25))"
+    sleep 1.2
+    ev "globalThis._zoom = __gd.zoomStats(); true" > /dev/null
+    assert_true "elasticity overshoots" '_zoom.max > 1.05 && _zoom.max < 1.25'
+    assert_eq "and settles at full zoom" '__gd.dock()._magAmount.value' 1
+    move 800 300
+    wait_for '__gd.dock()._magAmount.value === 0'
+    assert_eq "and never goes below rest" '__gd.dock()._magAmount.value' 0
+    greset magnification-elasticity
+
+    gset magnification-spread 5
+    assert_true "the wave width applies right away" \
+        '__gd.dock().metrics.influence === (__gd.dock().metrics.iconSize + __gd.dock().metrics.spacing) * 5'
+    greset magnification-spread
+
+    gset magnification-follow-time 0
+    move "$x" "$((y + 25))"
+    sleep 0.1
+    move "$((x + 40))" "$((y + 25))"
+    sleep 0.1
+    assert_true "a follow delay of 0 tracks the pointer exactly" \
+        '__gd.dock()._focus.value === __gd.dock()._focus.target'
+    greset magnification-follow-time
+    move 800 300
+    wait_for '__gd.dock()._magAmount.value === 0'
+    ev '__gd.stopRecordingZoom()' > /dev/null
+}
+
+scenario_remote() {
+    section "Dock animations in a remote session"
+    set_favorites "['$CALC', '$TE', '$FILES']"
+    gset multi-window-action "'previews'"
+    gset downloads-view "'fan'"
+    move 800 300
+    wait_for '__gd.dock()._magAmount.value === 0'
+    ev 'imports.gi.St.Settings.get().inhibit_animations(); __gd.watchEase()' > /dev/null
+    assert_eq "(GNOME animations are inhibited, as in a remote session)" \
+        'imports.gi.St.Settings.get().enable_animations' false
+
+    assert_true "auto-hide slides" "(() => { const d = __gd.dock(); d.slideOut(true);
+        const on = d._actor.get_transition('translation-y') !== null; d.slideIn(false); return on; })()"
+    assert_true "the launch bounce animates" "(() => { const i = __gd.item('app:$TE'); i.bounce(1);
+        return i.iconActor.get_transition('translation-y') !== null; })()"
+    sleep 0.6
+    assert_true "icons animate in" "(() => { const i = __gd.item('app:$TE'); i.presence.value = 0; i.appear(true);
+        return i.presence.get_transition('value') !== null; })()"
+    sleep 0.4
+    assert_true "the tooltip fades" "(() => { const d = __gd.dock(); d.onItemHover(__gd.item('app:$TE'), true);
+        const on = d._tooltip.get_transition('opacity') !== null; d.hideTooltip(); return on; })()"
+
+    ev '__gd.resetEaseStats()' > /dev/null
+    click_item downloads
+    wait_for '__gd.overlays().length === 1'
+    sleep 0.3
+    assert_true "the Downloads fan animates" '__gd._easeStats.animated >= 4'
+    key_escape
+    sleep 0.3
+
+    open_windows "$TE" 2
+    ev '__gd.resetEaseStats()' > /dev/null
+    click_item "app:$TE"
+    wait_for '__gd.overlays().length === 1'
+    sleep 0.3
+    assert_true "window previews animate" '__gd._easeStats.animated >= 1'
+    key_escape
+    sleep 0.3
+
+    gset multi-window-action "'expose'"
+    ev '__gd.resetEaseStats()' > /dev/null
+    click_item "app:$TE"
+    wait_for '__gd.overlays().length === 1'
+    sleep 0.2
+    assert_true "App Exposé animates" '__gd._easeStats.animated >= 3'
+    key_escape
+    sleep 0.6
+    gset multi-window-action "'previews'"
+    close_windows "$TE"
+    wait_for "__gd.windows('$TE').length === 0" 60
+
+    gsettings set org.gnome.desktop.interface enable-animations false
+    sleep 0.2
+    assert_true "turning animations off in GNOME is still respected" "(() => { const d = __gd.dock(); d.slideOut(true);
+        const off = d._actor.get_transition('translation-y') === null; d.slideIn(false); return off; })()"
+    gsettings reset org.gnome.desktop.interface enable-animations
+    sleep 0.2
+    ev '__gd.stopWatchingEase(); imports.gi.St.Settings.get().uninhibit_animations(); true' > /dev/null
+    assert_no_js_errors "no JS errors with animations in a remote session"
 }
 
 scenario_fit() {
@@ -481,7 +637,7 @@ scenario_i18n() {
 
 # ---- Main --------------------------------------------------------------------
 
-MAIN=(lifecycle basics multiwindow dnd autohide stacks zoom fit prefs dark)
+MAIN=(lifecycle basics multiwindow dnd autohide stacks zoom zoomconfig remote fit prefs dark)
 SEPARATE=(monitors scale unmatched)
 SELECTED=("$@")
 [ ${#SELECTED[@]} -eq 0 ] && SELECTED=("${MAIN[@]}" i18n "${SEPARATE[@]}")
