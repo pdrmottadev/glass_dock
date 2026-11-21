@@ -27,8 +27,10 @@ import {EdgeGeometry, getAppFromSource} from './utils.js';
 import {WindowPreviewsPopup} from './windowPreviews.js';
 
 const EDGE_MARGIN = 8;
-const MAGNIFY_IN_TIME = 140;
-const MAGNIFY_OUT_TIME = 220;
+const MAGNIFY_IN_TIME = 240;
+const MAGNIFY_OUT_TIME = 320;
+const MAGNIFY_MIN_TIME = 80; // for short trips, e.g. reversing halfway
+const POINTER_GLIDE_TIME = 140;
 const SLIDE_TIME = 240;
 const TOOLTIP_GAP = 10;
 const MIN_ICON_SIZE = 24;
@@ -59,6 +61,8 @@ export class Dock {
         this._menuOpenCount = 0;
         this._menuPending = false;
         this._popupOpen = false;
+        this._magFrozen = false; // zoom held in place while a popup is open
+        this._magTarget = 0; // value the zoom is at or animating to
         this._shown = true;
         this._pointer = null; // [x, y] stage coords
         this._relayoutId = 0;
@@ -179,7 +183,18 @@ export class Dock {
         this._magAmount = new St.Adjustment({actor: this._actor, lower: 0, upper: 1, value: 0});
         this._magAmount.connect('notify::value', () => this.queueRelayout());
 
+        // Offset that glides the zoom to the pointer when a popup closes.
+        this._pointerShift = new St.Adjustment({
+            actor: this._actor,
+            lower: -Number.MAX_SAFE_INTEGER,
+            upper: Number.MAX_SAFE_INTEGER,
+            value: 0,
+        });
+        this._pointerShift.connect('notify::value', () => this.queueRelayout());
+
         this._actor.connect('motion-event', (actor, event) => {
+            if (this._magFrozen)
+                return Clutter.EVENT_PROPAGATE;
             this._pointer = event.get_coords();
             if (this.metrics.magEnabled && !this.dragging)
                 this.queueRelayout();
@@ -356,9 +371,11 @@ export class Dock {
         });
     }
 
-    _relayout() {
-        if (this._destroyed)
-            return;
+    /**
+     * Computes where everything goes for a zoom amount, without moving any
+     * actor. Positions are exact (not rounded).
+     */
+    _layoutFor(amount, pointerShift) {
         const m = this.metrics;
         const geom = this.geom;
         const mon = this.monitor;
@@ -380,10 +397,9 @@ export class Dock {
         const baseLength = entries.reduce((a, e) => a + e.base, 0) + 2 * m.endPad;
         const baseStart = (monMain - baseLength) / 2;
 
-        const amount = m.magEnabled ? this._magAmount.value : 0;
         let pointer = null;
         if (this._pointer && amount > 0)
-            pointer = geom.mainOf(...this._pointer) - monMainOrigin - baseStart;
+            pointer = geom.mainOf(...this._pointer) + pointerShift - monMainOrigin - baseStart;
 
         const layout = computeLayout({
             baseSizes: entries.map(e => e.base),
@@ -404,38 +420,62 @@ export class Dock {
         const zoneWanted = amount > 0 ||
             (this._actor.hover && !this.dragging && !this._menuPending &&
              this._menuOpenCount === 0 && !this._popupOpen);
-        const zone = zoneWanted ? m.zone : 0;
-        const crossTotal = m.thickness + zone;
+        const crossTotal = m.thickness + (zoneWanted ? m.zone : 0);
+        const [ax, ay] = geom.rect(monCross, start, m.margin, layout.length, crossTotal);
 
-        const [ax, ay, aw, ah] = geom.rect(monCross, start, m.margin, layout.length, crossTotal);
-        this._actor.set_position(Math.round(ax), Math.round(ay));
-        this._actor.set_size(Math.round(aw), Math.round(ah));
+        const placed = entries.map((e, i) => ({
+            item: e.item,
+            pos: layout.positions[i],
+            size: layout.sizes[i],
+            base: e.base,
+            scale: layout.scales[i],
+        }));
+        return {placed, start, length: layout.length, crossTotal, ax, ay, baseStart, baseLength, monMainOrigin};
+    }
 
-        const [bx, by, bw, bh] = geom.rect(crossTotal, 0, 0, layout.length, m.thickness);
-        this._background.set_position(Math.round(bx), Math.round(by));
-        this._background.set_size(Math.round(bw), Math.round(bh));
+    _relayout() {
+        if (this._destroyed)
+            return;
+        const m = this.metrics;
+        const geom = this.geom;
+        const monCross = geom.vertical ? this.monitor.width : this.monitor.height;
+        const amount = m.magEnabled ? this._magAmount.value : 0;
+        const L = this._layoutFor(amount, this._pointerShift.value);
+        const {crossTotal} = L;
+
+        // Round each edge once: rounding offsets and sizes at every level
+        // adds up and makes icons wobble while the zoom animates.
+        const mainStart = Math.round(L.start);
+        const mainLength = Math.round(L.start + L.length) - mainStart;
+
+        const [ax, ay, aw, ah] = geom.rect(monCross, mainStart, m.margin, mainLength, crossTotal);
+        this._actor.set_position(ax, ay);
+        this._actor.set_size(aw, ah);
+
+        const [bx, by, bw, bh] = geom.rect(crossTotal, 0, 0, mainLength, m.thickness);
+        this._background.set_position(bx, by);
+        this._background.set_size(bw, bh);
 
         const inset = Math.ceil(m.radius * 0.3);
-        this._blur.set_position(Math.round(bx + inset), Math.round(by + inset));
-        this._blur.set_size(Math.max(0, Math.round(bw - 2 * inset)), Math.max(0, Math.round(bh - 2 * inset)));
+        this._blur.set_position(bx + inset, by + inset);
+        this._blur.set_size(Math.max(0, bw - 2 * inset), Math.max(0, bh - 2 * inset));
 
         this._itemsLayer.set_position(0, 0);
-        this._itemsLayer.set_size(Math.round(aw), Math.round(ah));
+        this._itemsLayer.set_size(aw, ah);
 
-        const placed = [];
-        entries.forEach((e, i) => {
-            const pos = layout.positions[i];
-            const size = layout.sizes[i];
-            placed.push({item: e.item, pos, size, base: e.base, scale: layout.scales[i]});
-            if (!e.item)
-                return;
-            const [x, y, w, h] = geom.rect(crossTotal, pos, 0, size, crossTotal);
-            e.item.set_position(Math.round(x), Math.round(y));
-            e.item.set_size(Math.max(0, Math.round(w)), Math.max(0, Math.round(h)));
-            e.item.applyLayout(geom, size, crossTotal, layout.scales[i], m);
-        });
+        const offset = L.start - mainStart;
+        for (const p of L.placed) {
+            if (!p.item)
+                continue;
+            const [x, y, w, h] = geom.rect(crossTotal, offset + p.pos, 0, p.size, crossTotal);
+            const itemX = Math.round(x), itemY = Math.round(y);
+            p.item.set_position(itemX, itemY);
+            p.item.set_size(Math.max(0, Math.round(w)), Math.max(0, Math.round(h)));
+            const center = offset + p.pos + p.size / 2 - (geom.vertical ? itemY : itemX);
+            p.item.applyLayout(geom, center, crossTotal, p.scale, m);
+        }
 
-        this._lastLayout = {placed, start, crossTotal, ax, ay, baseStart, baseLength, monMainOrigin};
+        this._lastLayout = L;
 
         if (this._tooltipItem)
             this._positionTooltip();
@@ -445,17 +485,20 @@ export class Dock {
     }
 
     /** Visual rect of an item's icon in outer (monitor-local) coordinates. */
-    iconRectFor(item) {
-        const L = this._lastLayout;
-        if (!L)
-            return null;
-        const p = L.placed.find(e => e.item === item);
+    iconRectFor(item, layout = this._lastLayout) {
+        const p = layout?.placed.find(e => e.item === item);
         if (!p)
             return null;
         const m = this.metrics;
         const s = m.iconSize * p.scale;
-        const [x, y, w, h] = this.geom.rect(L.crossTotal, p.pos + (p.size - s) / 2, m.pad, s, s);
-        return [L.ax + x, L.ay + y, w, h];
+        const [x, y, w, h] = this.geom.rect(layout.crossTotal, p.pos + (p.size - s) / 2, m.pad, s, s);
+        return [layout.ax + x, layout.ay + y, w, h];
+    }
+
+    /** Like iconRectFor(), but where the icon ends up once the zoom settles. */
+    settledIconRect(item) {
+        const amount = this.metrics.magEnabled ? this._magTarget : 0;
+        return this.iconRectFor(item, this._layoutFor(amount, 0));
     }
 
     _updateIconGeometries() {
@@ -512,25 +555,43 @@ export class Dock {
         return this.dragging || this._menuOpenCount > 0 || this._popupOpen;
     }
 
-    _onHoverChanged() {
-        const hovered = this._actor.hover;
+    _onHoverChanged(hovered = this._actor.hover) {
+        // The popup's grab takes the hover away; the zoom stays until it closes.
+        if (this._magFrozen)
+            return;
         if (hovered) {
             const [x, y] = global.get_pointer();
             this._pointer = [x, y];
         }
         if (this.metrics.magEnabled) {
-            this._magAmount.remove_transition('value');
             const target = hovered && !this.dragging && !this._menuPending &&
                 this._menuOpenCount === 0 && !this._popupOpen ? 1 : 0;
-            this._magAmount.ease(target, {
-                duration: target ? MAGNIFY_IN_TIME : MAGNIFY_OUT_TIME,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
+            this._easeMagnification(target);
         }
         if (!hovered)
             this.hideTooltip();
         this.queueRelayout();
         this._autohide?.onHoverChanged(hovered);
+    }
+
+    /** Animates the zoom, slow at both ends; a no-op if already heading there. */
+    _easeMagnification(target) {
+        if (target === this._magTarget)
+            return;
+        this._magTarget = target;
+        this._magAmount.remove_transition('value');
+        const fullTime = target ? MAGNIFY_IN_TIME : MAGNIFY_OUT_TIME;
+        const distance = Math.abs(target - this._magAmount.value);
+        this._magAmount.ease(target, {
+            duration: Math.max(MAGNIFY_MIN_TIME, fullTime * distance),
+            mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
+        });
+    }
+
+    _resetMagnification() {
+        this._magTarget = 0;
+        this._magAmount.remove_transition('value');
+        this._magAmount.value = 0;
     }
 
     // ---- Tooltip ---------------------------------------------------------
@@ -595,8 +656,7 @@ export class Dock {
     prepareMenu() {
         this._menuPending = true;
         this.hideTooltip();
-        this._magAmount.remove_transition('value');
-        this._magAmount.value = 0;
+        this._resetMagnification();
         this._relayout();
     }
 
@@ -613,19 +673,53 @@ export class Dock {
         this._popupOpen = open;
         if (open)
             this.hideTooltip();
+        else if (this._magFrozen)
+            this._onHoverChanged(this._thawMagnification());
         else
             this._onHoverChanged();
         this._autohide?.update();
     }
 
+    /**
+     * Releases the zoom held by a popup and glides it to where the pointer
+     * is now. Hover is stale right after the grab ends, so this checks the
+     * pointer position instead.
+     *
+     * @returns {boolean} whether the pointer is over the dock
+     */
+    _thawMagnification() {
+        this._magFrozen = false;
+        const [x, y] = global.get_pointer();
+        const [ok, localX, localY] = this._actor.transform_stage_point(x, y);
+        const over = ok && localX >= 0 && localY >= 0 &&
+            localX < this._actor.width && localY < this._actor.height;
+        if (over) {
+            const shift = this._pointerShift.value +
+                this.geom.mainOf(...this._pointer) - this.geom.mainOf(x, y);
+            this._pointerShift.remove_transition('value');
+            this._pointerShift.value = shift;
+            this._pointerShift.ease(0, {
+                duration: POINTER_GLIDE_TIME,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        }
+        return over;
+    }
+
     // ---- Overlays (Downloads stack, window previews, App Exposé) ---------
 
-    /** Collapses magnification so overlays anchor to the resting icon. */
-    prepareOverlay() {
+    /**
+     * Prepares the dock for an overlay, which anchors to settledIconRect().
+     *
+     * @param {object} [params]
+     * @param {boolean} [params.keepMagnification] hold the current zoom while
+     *   the overlay is open; otherwise collapse it
+     */
+    prepareOverlay({keepMagnification = false} = {}) {
         this.hideTooltip();
-        this._magAmount.remove_transition('value');
-        this._magAmount.value = 0;
-        this._popupOpen = true; // keeps the magnification zone collapsed
+        this._popupOpen = true;
+        this._magFrozen = keepMagnification && this.metrics.magEnabled && this._actor.hover;
+        this._easeMagnification(this._magFrozen ? 1 : 0);
         this._relayout();
     }
 
@@ -642,7 +736,7 @@ export class Dock {
     }
 
     openWindowPreviews(item) {
-        this.prepareOverlay();
+        this.prepareOverlay({keepMagnification: true});
         new WindowPreviewsPopup(item);
     }
 
@@ -716,8 +810,7 @@ export class Dock {
         this.dragging = true;
         this._draggedItem = item;
         this.hideTooltip();
-        this._magAmount.remove_transition('value');
-        this._magAmount.value = 0;
+        this._resetMagnification();
         item.presence.remove_transition('value');
         item.presence.ease(0, {duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.2 — 2026-11-21
+
+- The magnification now stays in place while the Downloads stack or the
+  window previews are open, and they open from the magnified icon. When they
+  close, the zoom follows the pointer or collapses if it left the dock.
+- The zoom now eases in and out when entering and leaving the dock, without
+  the sudden start it had, and icons no longer wobble by a pixel or two while
+  it animates. App Exposé also collapses the zoom smoothly instead of at once.
+- The Downloads fan shows fewer items on short screens instead of running
+  past the top of the screen.
+
 ## 1.0.1 — 2026-11-20
 
 - Apps whose windows GNOME cannot match to their launcher (such as the

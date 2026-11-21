@@ -34,6 +34,7 @@ const FILE_ATTRS = [
 ].join(',');
 
 const FAN_MAX_ITEMS = 10;
+const FAN_TOP_MARGIN = 48; // keeps the fan clear of the top panel
 const GRID_MAX_ITEMS = 40;
 const GRID_COLUMNS = 5;
 
@@ -108,7 +109,9 @@ class StackPopup {
     _buildFan() {
         const iconSize = 48;
         const step = iconSize + 10;
-        const files = this._files.slice(0, FAN_MAX_ITEMS);
+        // The fan starts above the (possibly magnified) icon: fit it on screen.
+        const room = Math.floor((this._anchor.top - 12 - FAN_TOP_MARGIN) / step) - 1;
+        const files = this._files.slice(0, Math.max(1, Math.min(FAN_MAX_ITEMS, room)));
         const entries = files.map(info =>
             this._fanEntry(info.get_display_name(), fileIcon(info), () => this._openFile(info), iconSize));
         entries.push(this._fanEntry(_('Open in Files'),
@@ -279,7 +282,7 @@ class DownloadsStack extends DockItem {
         const files = await this._listFiles(cancellable);
         if (cancellable.is_cancelled() || this._destroyed || (this._popup && !this._popup.closed))
             return;
-        this._dock.prepareOverlay();
+        this._dock.prepareOverlay({keepMagnification: true});
         this._popup = new StackPopup(this, this._dir, files,
             this._dock.settings.get_string('downloads-view'));
     }

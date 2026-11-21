@@ -130,14 +130,14 @@ class DockItem extends St.Button {
      * Positions the icon and dot inside the item.
      *
      * @param {EdgeGeometry} geom
-     * @param {number} mainSize  item size along the dock
+     * @param {number} center    icon center along the dock, in item coordinates
      * @param {number} crossSize item thickness (bar + magnification zone)
      * @param {number} scale     current magnification scale
      * @param {object} m         dock metrics
      */
-    applyLayout(geom, mainSize, crossSize, scale, m) {
+    applyLayout(geom, center, crossSize, scale, m) {
         const M = m.magSize;
-        const [ix, iy] = geom.rect(crossSize, (mainSize - M) / 2, m.pad, M, M);
+        const [ix, iy] = geom.rect(crossSize, center - M / 2, m.pad, M, M);
         this._iconActor.set_position(Math.round(ix), Math.round(iy));
         this._iconActor.set_size(M, M);
         const [px, py] = geom.edgePivot;
@@ -154,7 +154,7 @@ class DockItem extends St.Button {
         this._dots.forEach((dot, i) => {
             if (i >= n)
                 return;
-            const main = (mainSize - total) / 2 + i * (D + gap);
+            const main = center - total / 2 + i * (D + gap);
             const [dx, dy] = geom.rect(crossSize, main, cross, D, D);
             dot.set_position(Math.round(dx), Math.round(dy));
             dot.set_size(D, D);
@@ -602,11 +602,11 @@ class DockSeparator extends St.Widget {
         return m.separatorSize;
     }
 
-    applyLayout(geom, mainSize, crossSize, _scale, m) {
+    applyLayout(geom, center, crossSize, _scale, m) {
         const thickness = 1;
         const length = m.iconSize * 0.7;
         const crossOffset = m.pad + (m.iconSize - length) / 2;
-        const [x, y, w, h] = geom.rect(crossSize, (mainSize - thickness) / 2,
+        const [x, y, w, h] = geom.rect(crossSize, center - thickness / 2,
             crossOffset, thickness, length);
         this._line.set_position(Math.round(x), Math.round(y));
         this._line.set_size(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));

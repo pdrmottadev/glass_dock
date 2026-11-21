@@ -25,7 +25,7 @@ done
 podman exec "$NAME" bash -c 'mkdir -p /run/user/1000 && chown tester: /run/user/1000 && chmod 700 /run/user/1000'
 
 SCENARIOS=("$@")
-[ ${#SCENARIOS[@]} -eq 0 ] && SCENARIOS=(lifecycle basics multiwindow dnd autohide stacks fit prefs monitors scale unmatched)
+[ ${#SCENARIOS[@]} -eq 0 ] && SCENARIOS=(lifecycle basics multiwindow dnd autohide stacks zoom fit prefs monitors scale unmatched)
 
 echo "GNOME Shell: $(podman exec "$NAME" gnome-shell --version)"
 podman exec -u tester -e XDG_RUNTIME_DIR=/run/user/1000 -e HOME=/home/tester -w /src "$NAME" \

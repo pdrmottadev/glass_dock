@@ -105,6 +105,38 @@
             keyboard.notify_key(t + 1000, KEY_ESC, Clutter.KeyState.RELEASED);
             return true;
         },
+        // Records the zoom and the position of an icon on every layout.
+        recordZoom(key) {
+            const dock = this.dock(), item = this.item(key);
+            const log = this._zoomLog = [];
+            dock._relayout = () => {
+                Object.getPrototypeOf(dock)._relayout.call(dock);
+                const icon = item.iconActor;
+                log.push([now() / 1000, dock._magAmount.value, dock._actor.x + item.x + icon.x + icon.width / 2]);
+            };
+            return true;
+        },
+        stopRecordingZoom() {
+            delete this.dock()._relayout;
+            return true;
+        },
+        // Duration, peak speed (per ms), direction and icon wobble of the last animation.
+        zoomStats() {
+            const log = this._zoomLog;
+            const first = log.findIndex((r, i) => i > 0 && r[1] !== log[i - 1][1]);
+            const last = log.findLastIndex((r, i) => i > 0 && r[1] !== log[i - 1][1]);
+            const run = log.slice(first - 1, last + 1);
+            const steps = run.slice(1).map((r, i) => [r[1] - run[i][1], r[0] - run[i][0]]);
+            const xs = run.map(r => r[2]);
+            const stats = {
+                duration: run.at(-1)[0] - run[0][0],
+                peak: Math.max(...steps.map(([dv, dt]) => Math.abs(dv) / dt)),
+                monotonic: steps.every(([dv]) => dv > 0) || steps.every(([dv]) => dv < 0),
+                wobble: Math.max(...xs) - Math.min(...xs),
+            };
+            log.length = 0;
+            return stats;
+        },
         // Whether an actor belongs to the dock extension (used for pick checks).
         isDockActor(actor) {
             const dock = this.dock();

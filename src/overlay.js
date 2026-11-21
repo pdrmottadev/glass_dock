@@ -71,10 +71,10 @@ export class ModalLayer {
     }
 
     /**
-     * Anchor points of a dock item's (unmagnified) icon, in layer coordinates.
+     * Anchor points of a dock item's icon, in layer coordinates.
      */
     anchorFor(item) {
-        const [x, y, w, h] = this._dock.iconRectFor(item) ?? [0, 0, 0, 0];
+        const [x, y, w, h] = this._dock.settledIconRect(item) ?? [0, 0, 0, 0];
         return {
             x: x + w / 2,
             y: y + h / 2,

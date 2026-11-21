@@ -112,6 +112,7 @@ scenario_multiwindow() {
     wait_for '__gd.overlays().length === 1'
     local panel="__gd.overlays()[0].get_children().find(a => a.has_style_class_name('glass-dock-preview-panel'))"
     assert_eq "previews show one card per window" "$panel.get_n_children()" 3
+    assert_eq "the zoom stays while previews are open" '__gd.dock()._magAmount.value' 1
     shot previews
     local target
     target=$(ev "__gd.windows('$TE')[0].get_stable_sequence()")
@@ -260,9 +261,30 @@ scenario_stacks() {
     wait_for '__gd.overlays().length === 1'
     assert_true "fan shows the files plus 'Open in Files'" '__gd.overlays()[0].get_n_children() >= 4'
     shot downloads-fan
+    sleep 0.5
+    assert_eq "the zoom stays while the fan is open" '__gd.dock()._magAmount.value' 1
+    assert_true "the fan is anchored to the magnified icon" \
+        "__gd.dock().iconRectFor(__gd.item('downloads'))[2] > __gd.dock().metrics.iconSize"
+    local frozen
+    frozen=$(ev '__gd.dock()._pointer[0]')
+    move 900 500
+    sleep 0.3
+    assert_eq "moving the pointer does not disturb the held zoom" '__gd.dock()._pointer[0]' "$frozen"
     click 300 300
     sleep 0.4
     assert_eq "clicking outside closes the fan" '__gd.overlays().length' 0
+    wait_for '__gd.dock()._magAmount.value === 0'
+    assert_eq "and the zoom collapses, as the pointer left the dock" '__gd.dock()._magAmount.value' 0
+
+    click_item downloads
+    wait_for '__gd.overlays().length === 1'
+    sleep 0.3
+    key_escape
+    sleep 0.5
+    assert_eq "closing with the pointer on the dock keeps the zoom" '__gd.dock()._magAmount.value' 1
+    move 800 300
+    wait_for '__gd.dock()._magAmount.value === 0'
+    assert_eq "and leaving the dock afterwards collapses it" '__gd.dock()._magAmount.value' 0
 
     gset downloads-view "'grid'"
     click_item downloads
@@ -284,6 +306,40 @@ scenario_stacks() {
     rm -f "$XDG_DATA_HOME/Trash/files/old.txt" "$XDG_DATA_HOME/Trash/info/old.txt.trashinfo"
     wait_for "__gd.item('trash').iconActor.icon_name === 'user-trash'"
     assert_eq "and empty again" "__gd.item('trash').iconActor.icon_name" user-trash
+}
+
+scenario_zoom() {
+    section "Smooth zoom when entering and leaving the dock"
+    set_favorites "['$CALC', '$TE', '$FILES']"
+    move 800 300
+    sleep 0.6
+    local x y stats
+    read -r x y <<< "$(ev "__gd.center('app:$TE').join(' ')")"
+    ev "__gd.recordZoom('app:$TE')" > /dev/null
+    move "$x" "$((y + 25))"
+    sleep 0.6
+    ev "globalThis._zoom = __gd.zoomStats(); true" > /dev/null
+    stats=$(ev 'JSON.stringify(_zoom)')
+    assert_true "entering takes at least 200 ms ($stats)" '_zoom.duration >= 200'
+    assert_true "entering has no sudden jump" '_zoom.peak < 0.009'
+    assert_true "entering only grows" '_zoom.monotonic'
+    assert_true "the icon under the pointer does not wobble" '_zoom.wobble <= 1'
+
+    move 800 300
+    sleep 0.7
+    ev "globalThis._zoom = __gd.zoomStats(); true" > /dev/null
+    stats=$(ev 'JSON.stringify(_zoom)')
+    assert_true "leaving takes at least 280 ms ($stats)" '_zoom.duration >= 280'
+    assert_true "leaving has no sudden jump" '_zoom.peak < 0.007'
+    assert_true "leaving only shrinks" '_zoom.monotonic'
+    assert_true "the icon does not wobble on the way out" '_zoom.wobble <= 1'
+
+    move "$x" "$((y + 25))"
+    sleep 0.12
+    move 800 300
+    wait_for '__gd.dock()._magAmount.value === 0'
+    assert_eq "reversing halfway settles at rest" '__gd.dock()._magAmount.value' 0
+    ev '__gd.stopRecordingZoom()' > /dev/null
 }
 
 scenario_fit() {
@@ -425,7 +481,7 @@ scenario_i18n() {
 
 # ---- Main --------------------------------------------------------------------
 
-MAIN=(lifecycle basics multiwindow dnd autohide stacks fit prefs dark)
+MAIN=(lifecycle basics multiwindow dnd autohide stacks zoom fit prefs dark)
 SEPARATE=(monitors scale unmatched)
 SELECTED=("$@")
 [ ${#SELECTED[@]} -eq 0 ] && SELECTED=("${MAIN[@]}" i18n "${SEPARATE[@]}")
