@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.4 — 2026-11-21
+
+- README: the install example no longer names a specific version.
+
 ## 1.0.3 — 2026-11-21
 
 - The zoom now moves like a spring: it keeps its speed when the pointer

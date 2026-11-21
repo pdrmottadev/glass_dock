@@ -53,12 +53,13 @@ A floating, translucent dock for GNOME Shell 50 and 51, inspired by the macOS do
 
 ## Install
 
-1. Download `glass-dock-vX.Y.zip` from the
+1. Download `glass-dock-vX.Y.Z.zip` from the
    [releases page](https://github.com/pdrmottadev/glass_dock/releases).
 2. Install it:
    ```sh
-   gnome-extensions install --force glass-dock-v1.0.zip
+   gnome-extensions install --force glass-dock-vX.Y.Z.zip
    ```
+   Replace `X.Y.Z` with the version you downloaded.
 3. Log out and back in (on Wayland GNOME Shell only loads new extensions at
    login), then:
    ```sh
@@ -155,7 +156,8 @@ pilha de Downloads, Lixeira e escolha de monitor. A interface está em inglês,
 português e espanhol.
 
 Para instalar, baixe o zip da página de releases e rode
-`gnome-extensions install --force glass-dock-v1.0.zip`. Depois saia da sessão,
+`gnome-extensions install --force glass-dock-vX.Y.Z.zip`, trocando `X.Y.Z` pela
+versão baixada. Depois saia da sessão,
 entre de novo e rode `gnome-extensions enable glass-dock@pdrmottadev.github.io`.
 Desative outros docks, como o Dash to Dock.
 
