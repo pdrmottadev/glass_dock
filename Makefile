@@ -44,7 +44,7 @@ prefs:
 	gnome-extensions prefs $(UUID)
 
 pot:
-	xgettext --from-code=UTF-8 --language=JavaScript --keyword=_ \
+	xgettext --from-code=UTF-8 --language=JavaScript --keyword=_ --keyword=N_ \
 		--add-comments=Translators --package-name=$(DOMAIN) \
 		--package-version=$(VERSION) \
 		--msgid-bugs-address=https://github.com/pdrmottadev/glass_dock/issues \

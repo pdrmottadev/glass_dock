@@ -269,3 +269,291 @@
   color: #ffffff;
   background-color: rgba(0, 113, 227, 0.95);
 }
+
+/* ==========================================================================
+ * Styles. Each one changes how the dock behaves; all keep the glass look.
+ * The root and overlays carry .glass-dock-style-<id>. -st-accent-color is
+ * the accent color picked in GNOME Settings.
+ * ========================================================================== */
+
+/* ---------- Shared parts ---------- */
+
+/* Plate behind an open (or focused) app */
+.glass-dock-plate {
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.glass-dock-plate.glass-dock-focused {
+  background-color: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.glass-dock-dark .glass-dock-plate {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.glass-dock-dark .glass-dock-plate.glass-dock-focused {
+  background-color: rgba(0, 0, 0, 0.25);
+  border-color: rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* Several windows: a second plate peeks out behind */
+.glass-dock-plate.glass-dock-plate-multi {
+  box-shadow: 3px -3px 0 rgba(255, 255, 255, 0.35);
+}
+
+.glass-dock-dark .glass-dock-plate.glass-dock-plate-multi {
+  box-shadow: 3px -3px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Hover layers */
+.glass-dock-hover-cell,
+.glass-dock-hover-rounded,
+.glass-dock-hover-tint {
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.glass-dock-dark .glass-dock-hover-cell,
+.glass-dock-dark .glass-dock-hover-rounded,
+.glass-dock-dark .glass-dock-hover-tint {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.glass-dock-hover-halo {
+  border-radius: 999px;
+}
+
+/* Line and pill indicators */
+.glass-dock-bar-line {
+  background-color: -st-accent-color;
+}
+
+.glass-dock-bar-pill {
+  border-radius: 99px;
+  background-color: rgba(20, 20, 24, 0.45);
+}
+
+.glass-dock-dark .glass-dock-bar-pill {
+  background-color: rgba(255, 255, 255, 0.55);
+}
+
+.glass-dock-bar-pill.glass-dock-focused,
+.glass-dock-dark .glass-dock-bar-pill.glass-dock-focused {
+  background-color: -st-accent-color;
+}
+
+/* Apps button variants */
+.glass-dock-apps-plain {
+  background: none;
+}
+
+.glass-dock-apps-orb {
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.glass-dock-item:hover .glass-dock-apps-orb {
+  background-gradient-start: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 12px -st-accent-color;
+}
+
+.glass-dock-apps-labeled {
+  color: #2a2c33;
+  font-weight: bold;
+}
+
+.glass-dock-dark .glass-dock-apps-labeled {
+  color: #f2f2f5;
+}
+
+.glass-dock-item:hover .glass-dock-apps-labeled {
+  background-gradient-start: rgba(255, 255, 255, 1);
+}
+
+.glass-dock-dark .glass-dock-item:hover .glass-dock-apps-labeled {
+  background-gradient-start: rgba(112, 114, 124, 0.95);
+}
+
+/* ---------- Orb (Vista) and Glow (7): glassier plates ---------- */
+
+.glass-dock-style-orb .glass-dock-plate,
+.glass-dock-style-glow .glass-dock-plate {
+  border-radius: 3px;
+  background-gradient-direction: vertical;
+  background-gradient-start: rgba(255, 255, 255, 0.5);
+  background-gradient-end: rgba(255, 255, 255, 0.15);
+}
+
+.glass-dock-dark.glass-dock-style-orb .glass-dock-plate,
+.glass-dock-dark.glass-dock-style-glow .glass-dock-plate,
+.glass-dock-style-orb.glass-dock-dark .glass-dock-plate,
+.glass-dock-style-glow.glass-dock-dark .glass-dock-plate {
+  background-gradient-start: rgba(255, 255, 255, 0.22);
+  background-gradient-end: rgba(255, 255, 255, 0.05);
+}
+
+.glass-dock-style-orb .glass-dock-plate.glass-dock-focused,
+.glass-dock-style-glow .glass-dock-plate.glass-dock-focused {
+  background-gradient-start: rgba(255, 255, 255, 0.7);
+  background-gradient-end: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+}
+
+.glass-dock-style-orb .glass-dock-hover-cell {
+  border-radius: 3px;
+}
+
+.glass-dock-style-glow .glass-dock-hover-tint {
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Line (10): flat and square ---------- */
+
+.glass-dock-style-line .glass-dock-plate,
+.glass-dock-style-line .glass-dock-plate.glass-dock-focused {
+  border-radius: 0;
+  border-width: 0;
+  box-shadow: none;
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.glass-dock-dark .glass-dock-style-line .glass-dock-plate,
+.glass-dock-style-line.glass-dock-dark .glass-dock-plate {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.glass-dock-style-line .glass-dock-hover-cell {
+  border-radius: 0;
+}
+
+/* ---------- Center (11): rounded highlight on the focused app ---------- */
+
+.glass-dock-style-center .glass-dock-plate,
+.glass-dock-style-center .glass-dock-plate.glass-dock-focused {
+  background-color: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: none;
+}
+
+.glass-dock-style-center.glass-dock-dark .glass-dock-plate {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Bevel (95/98): raised and sunken edges ---------- */
+
+.glass-dock-style-bevel .glass-dock-plate,
+.glass-dock-style-bevel .glass-dock-apps-labeled {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-bottom-color: rgba(0, 0, 0, 0.45);
+  border-right-color: rgba(0, 0, 0, 0.45);
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.glass-dock-style-bevel .glass-dock-plate.glass-dock-focused,
+.glass-dock-style-bevel .glass-dock-item:active .glass-dock-apps-labeled {
+  border-color: rgba(0, 0, 0, 0.45);
+  border-bottom-color: rgba(255, 255, 255, 0.95);
+  border-right-color: rgba(255, 255, 255, 0.95);
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.glass-dock-style-bevel.glass-dock-dark .glass-dock-plate,
+.glass-dock-style-bevel.glass-dock-dark .glass-dock-apps-labeled {
+  border-color: rgba(255, 255, 255, 0.45);
+  border-bottom-color: rgba(0, 0, 0, 0.7);
+  border-right-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.glass-dock-style-bevel.glass-dock-dark .glass-dock-plate.glass-dock-focused {
+  border-color: rgba(0, 0, 0, 0.7);
+  border-bottom-color: rgba(255, 255, 255, 0.45);
+  border-right-color: rgba(255, 255, 255, 0.45);
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Several windows: a second, inner edge makes a double border */
+.glass-dock-style-bevel .glass-dock-plate.glass-dock-plate-multi {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.glass-dock-style-bevel .glass-dock-plate.glass-dock-plate-multi.glass-dock-focused {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+}
+
+.glass-dock-style-bevel.glass-dock-dark .glass-dock-plate.glass-dock-plate-multi {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.glass-dock-style-bevel.glass-dock-dark .glass-dock-plate.glass-dock-plate-multi.glass-dock-focused {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* ---------- Shelf and Neon: glowing indicators ---------- */
+
+.glass-dock-style-shelf .glass-dock-dot,
+.glass-dock-style-shelf .glass-dock-dot.glass-dock-dot-active {
+  background-color: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 0 6px 1px rgba(120, 200, 255, 0.95);
+}
+
+.glass-dock-style-neon .glass-dock-dot,
+.glass-dock-style-neon.glass-dock-dark .glass-dock-dot {
+  background-color: -st-accent-color;
+  box-shadow: 0 0 4px -st-accent-color;
+}
+
+.glass-dock-style-neon .glass-dock-dot.glass-dock-dot-active,
+.glass-dock-style-neon.glass-dock-dark .glass-dock-dot.glass-dock-dot-active {
+  background-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 8px 2px -st-accent-color;
+}
+
+.glass-dock-style-neon .glass-dock-background,
+.glass-dock-style-neon.glass-dock-dark .glass-dock-background {
+  border: 1px solid -st-accent-color;
+  box-shadow: 0 0 18px -st-accent-color;
+}
+
+/* ---------- Dash (GNOME): accent dots ---------- */
+
+.glass-dock-style-dash .glass-dock-dot,
+.glass-dock-style-dash.glass-dock-dark .glass-dock-dot {
+  background-color: -st-accent-color;
+}
+
+.glass-dock-style-dash .glass-dock-hover-rounded {
+  border-radius: 12px;
+}
+
+/* ---------- Square popups for the flat styles ---------- */
+
+.glass-dock-style-line .glass-dock-tooltip,
+.glass-dock-style-line .glass-dock-preview-panel,
+.glass-dock-style-line .glass-dock-preview-card,
+.glass-dock-style-line .glass-dock-stack-panel,
+.glass-dock-style-line .glass-dock-fan-label,
+.glass-dock-style-line .glass-dock-grid-cell,
+.glass-dock-style-line .glass-dock-stack-footer,
+.glass-dock-style-bevel .glass-dock-tooltip,
+.glass-dock-style-bevel .glass-dock-preview-panel,
+.glass-dock-style-bevel .glass-dock-preview-card,
+.glass-dock-style-bevel .glass-dock-stack-panel,
+.glass-dock-style-bevel .glass-dock-fan-label,
+.glass-dock-style-bevel .glass-dock-grid-cell,
+.glass-dock-style-bevel .glass-dock-stack-footer {
+  border-radius: 0;
+}

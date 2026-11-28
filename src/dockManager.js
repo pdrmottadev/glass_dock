@@ -55,7 +55,10 @@ export class DockManager {
             if (!LIVE_KEYS.has(key))
                 this._queueRebuild();
         }, this);
-        this._interfaceSettings.connectObject('changed::color-scheme', () => this._queueRebuild(), this);
+        this._interfaceSettings.connectObject(
+            'changed::color-scheme', () => this._queueRebuild(),
+            'changed::accent-color', () => this._queueRebuild(),
+            this);
         Main.layoutManager.connectObject('monitors-changed', () => this._queueRebuild(), this);
         Main.extensionManager.connectObject('extension-state-changed',
             () => this._checkConflicts(), this);

@@ -32,7 +32,7 @@ export class ModalLayer {
         this.closed = false;
 
         const monitor = dock.monitor;
-        const classes = ['glass-dock-overlay', styleClass];
+        const classes = ['glass-dock-overlay', dock.styleClass, styleClass];
         if (dock.dark)
             classes.push('glass-dock-dark');
         this.actor = new St.Widget({

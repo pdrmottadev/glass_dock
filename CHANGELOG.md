@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.0 — 2026-11-27
+
+- New dock styles, picked in *Appearance → Style*. All of them keep the glass
+  look and change how the dock behaves:
+  - **Glass**: the floating dock with zoom (default, unchanged).
+  - **Strip**: full-width bar with a labeled Apps button. Open apps sit on
+    raised plates, and the focused one looks pressed.
+  - **Orb**: full-width bar with a round Apps button that rises above it.
+  - **Glow**: larger icons. On hover, a glow in the icon's own color follows
+    the pointer.
+  - **Line**: flat full-width bar. A line marks open apps and spans the whole
+    cell on the focused one.
+  - **Center**: centered icons. A pill under open apps grows on the focused
+    one, and icons press in when clicked.
+  - **Bevel**: raised buttons that sink when focused, with no fades.
+  - **Shelf**: icons stand on a glass shelf in perspective, with reflections.
+  - **Neon**: glowing edge and an accent-colored halo that pulses on the
+    focused app.
+  - **Dash**: no zoom, a rounded highlight and the Apps button at the end.
+- Every style shows when an app has several windows: a dot per window (Glass,
+  Shelf, Neon, Dash), a second plate behind (Strip, Orb, Glow), a short
+  extra mark next to the line or pill (Line, Center) or a double border
+  (Bevel). Clicking, previews and App Exposé work the same in all styles.
+- Picking a style also applies its recommended icon size and zoom setting,
+  which can be changed afterwards.
+- Accent-colored details follow the accent color chosen in GNOME Settings.
+
 ## 1.0.4 — 2026-11-21
 
 - README: the install example no longer names a specific version.

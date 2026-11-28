@@ -6,9 +6,11 @@
 // and can maintain this code.
 
 // Small helpers shared across the dock.
+import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
+import St from 'gi://St';
 
 import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -99,4 +101,55 @@ export function launchUri(uri) {
     } catch (e) {
         Main.notifyError(_('Could not open %s').format(uri), e.message);
     }
+}
+
+/**
+ * Average color of an icon, weighted toward its saturated pixels, or null
+ * when the icon cannot be loaded.
+ *
+ * @param {Gio.Icon} gicon
+ * @returns {number[]|null} [r, g, b]
+ */
+export function iconColor(gicon) {
+    let pixbuf = null;
+    try {
+        if (gicon instanceof Gio.FileIcon) {
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(gicon.get_file().get_path(), 32, 32);
+        } else {
+            const info = new St.IconTheme().lookup_by_gicon(gicon, 32, St.IconLookupFlags.FORCE_SIZE);
+            pixbuf = info?.load_icon() ?? null;
+        }
+    } catch {
+        return null; // missing or unreadable icon file
+    }
+    if (!pixbuf)
+        return null;
+
+    const pixels = pixbuf.get_pixels();
+    const channels = pixbuf.get_n_channels();
+    const stride = pixbuf.get_rowstride();
+    const alpha = pixbuf.get_has_alpha();
+    let r = 0, g = 0, b = 0, total = 0;
+    for (let y = 0; y < pixbuf.get_height(); y++) {
+        for (let x = 0; x < pixbuf.get_width(); x++) {
+            const i = y * stride + x * channels;
+            const a = alpha ? pixels[i + 3] / 255 : 1;
+            if (a < 0.5)
+                continue;
+            const max = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]);
+            const min = Math.min(pixels[i], pixels[i + 1], pixels[i + 2]);
+            const saturation = max ? (max - min) / max : 0;
+            const weight = a * (0.02 + saturation * saturation);
+            r += pixels[i] * weight;
+            g += pixels[i + 1] * weight;
+            b += pixels[i + 2] * weight;
+            total += weight;
+        }
+    }
+    if (!total)
+        return null;
+    // Brighten it so the glow reads on dark and light glass alike.
+    const color = [r / total, g / total, b / total];
+    const boost = 230 / Math.max(1, ...color);
+    return color.map(c => Math.round(Math.min(255, c * boost)));
 }

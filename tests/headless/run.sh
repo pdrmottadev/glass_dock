@@ -100,6 +100,30 @@ scenario_basics() {
 
 scenario_multiwindow() {
     section "Several windows: dots, previews, Exposé, raise"
+    multiwindow_checks
+}
+
+# Runs the same checks with full-width bars: on the left edge with icons from
+# the top, and centered at the bottom.
+scenario_multiwindow_styles() {
+    local style position
+    for pair in strip:left center:bottom; do
+        style=${pair%:*} position=${pair#*:}
+        section "Several windows: $style style, $position edge"
+        gset position "'$position'"
+        gset dock-style "'$style'"
+        wait_for "__gd.dock()?.style.id === '$style' && __gd.dock().geom.position === '$position'" 40
+        apply_preset
+        multiwindow_checks
+    done
+    greset position
+    greset dock-style
+    greset icon-size
+    greset magnification-enabled
+    wait_for "__gd.dock()?.style.id === 'glass' && __gd.dock().geom.position === 'bottom'" 40
+}
+
+multiwindow_checks() {
     set_favorites "['$CALC', '$TE', '$FILES']"
     gset multi-window-action "'previews'"
     open_windows "$TE" 3
@@ -113,7 +137,14 @@ scenario_multiwindow() {
     wait_for '__gd.overlays().length === 1'
     local panel="__gd.overlays()[0].get_children().find(a => a.has_style_class_name('glass-dock-preview-panel'))"
     assert_eq "previews show one card per window" "$panel.get_n_children()" 3
-    assert_eq "the zoom stays while previews are open" '__gd.dock()._magAmount.value' 1
+    assert_true "the previews sit next to the dock, inside the screen" \
+        "(() => { const [x, y] = $panel.get_transformed_position(); const [w, h] = $panel.get_transformed_size();
+            const d = __gd.dock(), mon = d.monitor, depth = d.metrics.margin + d.metrics.thickness;
+            const inside = x >= mon.x && y >= mon.y && x + w <= mon.x + mon.width && y + h <= mon.y + mon.height;
+            const clear = d.geom.position === 'left' ? x >= mon.x + depth : y + h <= mon.y + mon.height - depth;
+            return inside && clear; })()"
+    assert_eq "the zoom stays while previews are open (if zoom is on)" \
+        '__gd.dock()._magAmount.value' "$(ev '__gd.dock().metrics.magEnabled ? 1 : 0')"
     shot previews
     local target
     target=$(ev "__gd.windows('$TE')[0].get_stable_sequence()")
@@ -543,6 +574,182 @@ scenario_dark() {
     sleep 1
 }
 
+# style_shots ID — screenshots of the current style, at rest and with the
+# pointer on the Text Editor icon.
+style_shots() {
+    [ -n "${SCREENSHOTS:-}" ] || return 0
+    move 800 300
+    sleep 0.6
+    shot "styles/$1"
+    local xy
+    xy=$(ev "__gd.center('app:$TE').join(' ')")
+    # shellcheck disable=SC2086
+    move $xy
+    sleep 0.8
+    shot "styles/$1-hover"
+    move 800 300
+}
+
+# Applies the current style's recommended icon size and zoom, like the
+# preferences do when a style is picked.
+apply_preset() {
+    local size zoom
+    size=$(ev "__gd.dock().style.preset['icon-size']")
+    zoom=$(ev "__gd.dock().style.preset['magnification-enabled']")
+    gset icon-size "$size"
+    gset magnification-enabled "$zoom"
+    wait_for "__gd.dock()?.metrics.iconSize === $size && __gd.dock()._lastLayout !== null" 40
+    sleep 0.3
+}
+
+scenario_styles() {
+    section "Styles"
+    set_favorites "['$CALC', '$TE', '$FILES']"
+    open_windows "$CALC" 1
+    open_windows "$TE" 2
+    local style
+    for style in glass strip orb glow line center bevel shelf neon dash; do
+        gset dock-style "'$style'"
+        wait_for "__gd.dock()?.style.id === '$style' && __gd.dock()._lastLayout !== null" 40
+        sleep 0.4
+        assert_eq "$style: dock is built" "__gd.dock().style.id" "$style"
+        apply_preset
+        style_shots "$style"
+        if [ -n "${SCREENSHOTS:-}" ]; then
+            gsettings set org.gnome.desktop.interface color-scheme prefer-dark
+            sleep 1
+            style_shots "$style-dark"
+            gsettings set org.gnome.desktop.interface color-scheme default
+            sleep 1
+        fi
+    done
+
+    local panel='__gd.dock()'
+    for style in strip line center; do
+        gset dock-style "'$style'"
+        wait_for "__gd.dock()?.style.id === '$style'" 40
+        sleep 0.4
+        assert_true "$style: the bar spans the whole monitor" \
+            "$panel._background.width === $panel.monitor.width && $panel._actor.x === 0"
+        assert_true "$style: the bar touches the screen edge and reserves its thickness" \
+            "$panel._actor.y + $panel.metrics.thickness === $panel.monitor.height &&
+             $panel._struts.height === $panel.metrics.thickness"
+        assert_true "$style: open apps are marked without dots" \
+            "(it => it._plate.visible || it._bar?.visible)(__gd.item('app:$CALC')) &&
+             __gd.item('app:$CALC')._dots.length === 0"
+    done
+    for style in line center; do
+        gset dock-style "'$style'"
+        wait_for "__gd.dock()?.style.id === '$style'" 40
+        sleep 0.4
+        assert_true "$style: an extra mark shows several windows, and only then" \
+            "__gd.item('app:$TE')._barExtra.visible && !__gd.item('app:$CALC')._barExtra.visible &&
+             __gd.item('app:$TE')._barExtra.width > 0"
+    done
+    for style in strip bevel; do
+        gset dock-style "'$style'"
+        wait_for "__gd.dock()?.style.id === '$style'" 40
+        assert_true "$style: the plate shows several windows, and only then" \
+            "__gd.item('app:$TE')._plate.has_style_class_name('glass-dock-plate-multi') &&
+             !__gd.item('app:$CALC')._plate.has_style_class_name('glass-dock-plate-multi')"
+    done
+    gset dock-style "'shelf'"
+    wait_for "__gd.dock()?.style.id === 'shelf'" 40
+    assert_eq "shelf: one light per window" "__gd.item('app:$TE')._dots.filter(d => d.visible).length" 2
+    gset dock-style "'line'"
+    wait_for "__gd.dock()?.style.id === 'line'" 40
+    assert_true "line: icons start at the left end" "__gd.dock()._items[0].x < 20"
+    gset dock-style "'center'"
+    wait_for "__gd.dock()?.style.id === 'center'" 40
+    sleep 0.4
+    assert_true "center: icons are centered" \
+        "(d => { const a = d._items[0], b = d._items.at(-1);
+            return Math.abs((a.x + b.x + b.width) / 2 - d.monitor.width / 2) <= 2; })(__gd.dock())"
+    click_item "app:$CALC"
+    wait_for "imports.gi.Shell.WindowTracker.get_default().focus_app?.get_id() === '$CALC'"
+    assert_eq "center: clicking a background app focuses it" \
+        "imports.gi.Shell.WindowTracker.get_default().focus_app?.get_id()" "$CALC"
+    wait_for "__gd.item('app:$CALC')._focusAmount.value === 1"
+    assert_true "center: the pill grows on the focused app" \
+        "__gd.item('app:$CALC')._bar.width > __gd.item('app:$TE')._bar.width"
+    click_item "app:$CALC"
+    wait_for "__gd.windows('$CALC')[0].minimized"
+    assert_eq "center: clicking it again minimizes it" "__gd.windows('$CALC')[0].minimized" true
+    move 800 300
+    sleep 0.5
+    local from to
+    from=$(ev "__gd.center('app:$CALC').join(' ')")
+    to=$(ev "(([x, y]) => [x - 8, y].join(' '))(__gd.center('app:$TE'))")
+    # shellcheck disable=SC2086
+    drag $from $to
+    assert_eq "center: dragging reorders pinned apps" \
+        "global.settings.get_strv('favorite-apps').join(',')" "$TE,$CALC,$FILES"
+    set_favorites "['$CALC', '$TE', '$FILES']"
+
+    gset dock-style "'strip'"
+    wait_for "__gd.dock()?.style.id === 'strip'" 40
+    sleep 0.4
+    assert_true "strip: the labeled Apps button is wider than an icon and does not zoom" \
+        "(it => !it.magnifiable && it.width > __gd.dock().metrics.iconSize * 1.5)(__gd.item('apps-button'))"
+    for style in strip bevel; do
+        gset dock-style "'$style'"
+        wait_for "__gd.dock()?.style.id === '$style'" 40
+        sleep 0.4
+        local before after
+        before=$(ev "__gd.item('apps-button').width")
+        # Hovering and clicking relayout the dock each time.
+        for _ in 1 2 3; do
+            xy=$(ev "__gd.center('app:$FILES').join(' ')")
+            # shellcheck disable=SC2086
+            move $xy
+            sleep 0.3
+            move 800 300
+            sleep 0.3
+            ev "__gd.dock()._relayout(); true" > /dev/null
+        done
+        after=$(ev "__gd.item('apps-button').width")
+        if [ "$before" = "$after" ]; then pass "$style: the Apps button keeps its width ($after px)"
+        else fail "$style: the Apps button grew from $before to $after px"; fi
+        assert_true "$style: the Apps label is not cut" \
+            "(l => l.width >= l.get_preferred_width(-1)[1] - 0.5)(__gd.item('apps-button')._label)"
+    done
+    gset dock-style "'glow'"
+    wait_for "__gd.dock()?.style.id === 'glow'" 40
+    sleep 0.4
+    local xy
+    xy=$(ev "__gd.center('app:$TE').join(' ')")
+    # shellcheck disable=SC2086
+    move $xy
+    sleep 0.6
+    assert_true "glow: the hover glow takes the color of the icon" \
+        "__gd.item('app:$TE')._glow.style?.includes('rgba') ?? false"
+    move 800 300
+    gset dock-style "'dash'"
+    wait_for "__gd.dock()?.style.id === 'dash'" 40
+    assert_true "dash: the Apps button comes after the pinned apps" \
+        "(d => d._items.indexOf(d._itemMap.get('apps-button')) > d._items.indexOf(d._itemMap.get('app:$FILES')))(__gd.dock())"
+    gset dock-style "'shelf'"
+    wait_for "__gd.dock()?.style.id === 'shelf'" 40
+    assert_true "shelf: drawn as a shelf, with reflections" \
+        "__gd.dock()._background instanceof imports.gi.St.DrawingArea && !!__gd.item('app:$TE')._reflection"
+
+    gset position "'left'"
+    gset dock-style "'line'"
+    wait_for "__gd.dock()?.style.id === 'line' && __gd.dock().geom.position === 'left'" 40
+    sleep 0.4
+    assert_true "line on the left: the bar spans the monitor height" \
+        "__gd.dock()._background.height === __gd.dock().monitor.height && __gd.dock()._actor.x === 0"
+    [ -n "${SCREENSHOTS:-}" ] && { move 800 300; sleep 0.5; shot styles/line-left; }
+    greset position
+    greset dock-style
+    greset icon-size
+    greset magnification-enabled
+    wait_for "__gd.dock()?.style.id === 'glass' && __gd.dock().geom.position === 'bottom'" 40
+    close_windows "$CALC"
+    close_windows "$TE"
+    wait_for "__gd.windows('$TE').length === 0 && __gd.windows('$CALC').length === 0" 40
+}
+
 # Separate shells -------------------------------------------------------------
 
 scenario_monitors() {
@@ -637,7 +844,7 @@ scenario_i18n() {
 
 # ---- Main --------------------------------------------------------------------
 
-MAIN=(lifecycle basics multiwindow dnd autohide stacks zoom zoomconfig remote fit prefs dark)
+MAIN=(lifecycle basics multiwindow dnd autohide stacks zoom zoomconfig remote fit prefs dark styles multiwindow_styles)
 SEPARATE=(monitors scale unmatched)
 SELECTED=("$@")
 [ ${#SELECTED[@]} -eq 0 ] && SELECTED=("${MAIN[@]}" i18n "${SEPARATE[@]}")

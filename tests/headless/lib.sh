@@ -146,7 +146,7 @@ drag() {
 
 shot() {
     [ -n "${SCREENSHOTS:-}" ] || return 0
-    mkdir -p "$SCREENSHOTS"
+    mkdir -p "$(dirname "$SCREENSHOTS/$1")"
     gdbus call --session --dest org.gnome.Shell.Screenshot --object-path /org/gnome/Shell/Screenshot \
         --method org.gnome.Shell.Screenshot.Screenshot false false "$SCREENSHOTS/$1.png" > /dev/null
 }

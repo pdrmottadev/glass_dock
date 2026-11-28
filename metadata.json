@@ -9,5 +9,5 @@
   "url": "https://github.com/pdrmottadev/glass_dock",
   "settings-schema": "org.gnome.shell.extensions.glass-dock",
   "gettext-domain": "glass-dock",
-  "version-name": "1.0.4"
+  "version-name": "1.1.0"
 }

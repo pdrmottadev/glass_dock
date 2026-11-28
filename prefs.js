@@ -13,6 +13,8 @@ import Gtk from 'gi://Gtk';
 
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
+import {STYLES} from './src/styles.js';
+
 /** Combo row bound to a string key with a fixed set of choices. */
 function choiceRow(settings, key, title, choices, subtitle = '') {
     const model = new Gtk.StringList();
@@ -30,6 +32,36 @@ function choiceRow(settings, key, title, choices, subtitle = '') {
             settings.set_string(key, value);
     });
     const id = settings.connect(`changed::${key}`, sync);
+    row.connect('destroy', () => settings.disconnect(id));
+    return row;
+}
+
+/**
+ * Style picker. Picking a style also applies its recommended icon size and
+ * zoom, which can be changed afterwards.
+ */
+function styleRow(settings) {
+    const model = new Gtk.StringList();
+    STYLES.forEach(style => model.append(_(style.name)));
+    const row = new Adw.ComboRow({title: _('Style'), model});
+
+    const sync = () => {
+        const idx = Math.max(0, STYLES.findIndex(style => style.id === settings.get_string('dock-style')));
+        row.selected = idx;
+        row.subtitle = _(STYLES[idx].description);
+    };
+    sync();
+    row.connect('notify::selected', () => {
+        const style = STYLES[row.selected];
+        if (style.id === settings.get_string('dock-style'))
+            return;
+        settings.delay();
+        settings.set_string('dock-style', style.id);
+        settings.set_int('icon-size', style.preset['icon-size']);
+        settings.set_boolean('magnification-enabled', style.preset['magnification-enabled']);
+        settings.apply();
+    });
+    const id = settings.connect('changed::dock-style', sync);
     row.connect('destroy', () => settings.disconnect(id));
     return row;
 }
@@ -96,6 +128,14 @@ export default class GlassDockPreferences extends ExtensionPreferences {
             title: _('Appearance'),
             icon_name: 'applications-graphics-symbolic',
         });
+
+        const styleGroup = new Adw.PreferencesGroup({
+            title: _('Style'),
+            description: _('Every style keeps the glass look and changes the shape, indicators and effects. ' +
+                'Picking one also sets its recommended icon size and zoom.'),
+        });
+        styleGroup.add(styleRow(settings));
+        look.add(styleGroup);
 
         const layout = new Adw.PreferencesGroup({title: _('Position and Size')});
         layout.add(choiceRow(settings, 'position', _('Screen edge'), [

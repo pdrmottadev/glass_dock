@@ -3,6 +3,22 @@
   <schema id="org.gnome.shell.extensions.glass-dock" path="/org/gnome/shell/extensions/glass-dock/">
 
     <!-- Appearance -->
+    <key name="dock-style" type="s">
+      <choices>
+        <choice value="glass"/>
+        <choice value="strip"/>
+        <choice value="orb"/>
+        <choice value="glow"/>
+        <choice value="line"/>
+        <choice value="center"/>
+        <choice value="bevel"/>
+        <choice value="shelf"/>
+        <choice value="neon"/>
+        <choice value="dash"/>
+      </choices>
+      <default>'glass'</default>
+      <summary>Dock style: shape, indicators and effects</summary>
+    </key>
     <key name="position" type="s">
       <choices>
         <choice value="bottom"/>

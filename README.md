@@ -13,6 +13,9 @@ A floating, translucent dock for GNOME Shell 50 and 51, inspired by the macOS do
 
 - **Glass look.** Blurred, translucent background with a light edge and a soft
   shadow. Follows the system light/dark style.
+- **Ten styles.** Keep the glass and change how the dock behaves: a floating
+  dock with zoom, full-width bars with plates, lines or pills, a glass shelf,
+  neon and more. See [Styles](#styles).
 - **Magnification.** Icons grow in a smooth wave under the pointer, with the
   app name above the icon.
 - **One dot per window**, up to four. The focused app's dots stand out.
@@ -50,6 +53,38 @@ A floating, translucent dock for GNOME Shell 50 and 51, inspired by the macOS do
 | Downloads as a fan | Downloads as a grid | Dark style, magnified |
 |---|---|---|
 | ![Fan](docs/screenshots/downloads-fan.png) | ![Grid](docs/screenshots/downloads-grid.png) | ![Dark](docs/screenshots/dock-dark-magnified.png) |
+
+## Styles
+
+Pick one in *Appearance → Style*. Every style keeps the glass look; what
+changes is the shape of the dock, how open apps are marked, the Apps button
+and the hover and click effects. Picking a style also applies its recommended
+icon size and zoom, which you can change afterwards. Accent-colored details
+follow the accent color chosen in GNOME Settings.
+
+| Style | Inspired by | What it does |
+|---|---|---|
+| **Glass** (default) | macOS | Floating dock with zoom and one dot per window. |
+| **Strip** | Windows XP | Full-width bar, labeled Apps button, open apps on raised plates; the focused one looks pressed. |
+| **Orb** | Windows Vista | Full-width bar with a round Apps button rising above it; soft glow on hover. |
+| **Glow** | Windows 7 | Larger icons; on hover, a glow in the icon's own color follows the pointer. |
+| **Line** | Windows 10 | Flat full-width bar; a line under open apps spans the whole cell on the focused one. |
+| **Center** | Windows 11 | Centered icons; a pill under open apps grows on the focused one; icons press in when clicked. |
+| **Bevel** | Windows 95/98 | Raised buttons that sink when focused, with no fades. |
+| **Shelf** | Mac OS X Leopard | Icons stand on a glass shelf in perspective, with reflections. |
+| **Neon** | — | Glowing edge and an accent-colored halo that pulses on the focused app. |
+| **Dash** | GNOME | No zoom, rounded highlight, Apps button at the end. |
+
+Only the behavior is borrowed: no logos, artwork or other assets from those
+systems are used.
+
+| | |
+|---|---|
+| Strip ![Strip](docs/screenshots/styles/strip.png) | Orb ![Orb](docs/screenshots/styles/orb.png) |
+| Glow ![Glow](docs/screenshots/styles/glow.png) | Line ![Line](docs/screenshots/styles/line.png) |
+| Center ![Center](docs/screenshots/styles/center.png) | Bevel ![Bevel](docs/screenshots/styles/bevel.png) |
+| Shelf ![Shelf](docs/screenshots/styles/shelf.png) | Neon ![Neon](docs/screenshots/styles/neon.png) |
+| Dash ![Dash](docs/screenshots/styles/dash.png) | Glass, dark ![Glass](docs/screenshots/styles/glass-dark.png) |
 
 ## Install
 
@@ -107,6 +142,7 @@ shell has a system bus and logind). The source tree is mounted read-only.
 | `src/dockManager.js` | Lifetime, rebuilds on settings/monitor changes, warns about other docks |
 | `src/dock.js` | Actors, layout, magnification, tooltip, drag and drop, slide in/out, struts |
 | `src/magnifier.js` | Magnification math (pure functions) |
+| `src/styles.js` | Dock styles: shape, indicators, Apps button and effects |
 | `src/dockItem.js` | Dock items: base, app icon, Applications button, separator |
 | `src/appsModel.js` | Pinned, running and recent apps |
 | `src/autohide.js` | Auto-hide and intellihide |
@@ -152,7 +188,9 @@ shell has a system bus and logind). The source tree is mounted read-only.
 Dock flutuante e translúcido para o GNOME Shell 50 e 51, inspirado no Dock do
 macOS. Tem vidro com desfoque, magnificação, um ponto por janela, prévias de
 janelas e App Exposé quando o app tem várias janelas, ocultação automática,
-pilha de Downloads, Lixeira e escolha de monitor. A interface está em inglês,
+pilha de Downloads, Lixeira e escolha de monitor. Há dez estilos (Vidro,
+Faixa, Orbe, Brilho, Linha, Central, Relevo, Prateleira, Neon e Dash) que
+mantêm o vidro e mudam o formato, os indicadores e os efeitos. A interface está em inglês,
 português e espanhol.
 
 Para instalar, baixe o zip da página de releases e rode

@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: glass-dock 1.0.3\n"
+"Project-Id-Version: glass-dock 1.0.4\n"
 "Report-Msgid-Bugs-To: https://github.com/pdrmottadev/glass_dock/issues\n"
-"POT-Creation-Date: 2026-11-21 09:55-0300\n"
+"POT-Creation-Date: 2026-11-21 12:43-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,287 +17,391 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: prefs.js:72
+#: prefs.js:46 prefs.js:133
+msgid "Style"
+msgstr ""
+
+#: prefs.js:104
 msgid "Primary monitor"
 msgstr ""
 
-#: prefs.js:85
+#: prefs.js:117
 #, javascript-format
 msgid "%s (disconnected)"
 msgstr ""
 
-#: prefs.js:96
+#: prefs.js:128
 msgid "Appearance"
 msgstr ""
 
-#: prefs.js:100
-msgid "Position and Size"
-msgstr ""
-
-#: prefs.js:101
-msgid "Screen edge"
-msgstr ""
-
-#: prefs.js:102
-msgid "Bottom"
-msgstr ""
-
-#: prefs.js:103
-msgid "Left"
-msgstr ""
-
-#: prefs.js:104
-msgid "Right"
-msgstr ""
-
-#: prefs.js:106
-msgid "Monitor"
-msgstr ""
-
-#: prefs.js:107
-msgid "Icon size"
-msgstr ""
-
-#: prefs.js:108
-msgid "In pixels; icons shrink automatically when they do not fit"
-msgstr ""
-
-#: prefs.js:111
-msgid "Magnification"
-msgstr ""
-
-#: prefs.js:112
-msgid "Magnify icons on hover"
-msgstr ""
-
-#: prefs.js:113
-msgid "Maximum size"
-msgstr ""
-
-#: prefs.js:113
-msgid "In pixels"
-msgstr ""
-
-#: prefs.js:119
-msgid "Zoom Animation"
-msgstr ""
-
-#: prefs.js:120
-msgid "Changes apply right away: move the pointer over the dock to try them."
-msgstr ""
-
-#: prefs.js:130
-msgid "Restore Defaults"
-msgstr ""
-
-#: prefs.js:136
-msgid "Time to zoom in"
-msgstr ""
-
-#: prefs.js:137 prefs.js:139 prefs.js:170
-msgid "In milliseconds"
-msgstr ""
-
-#: prefs.js:138
-msgid "Time to zoom out"
+#: prefs.js:134
+msgid ""
+"Every style keeps the glass look and changes the shape, indicators and "
+"effects. Picking one also sets its recommended icon size and zoom."
 msgstr ""
 
 #: prefs.js:140
-msgid "Pointer follow delay"
+msgid "Position and Size"
 msgstr ""
 
 #: prefs.js:141
-msgid "In milliseconds; 0 follows the pointer exactly"
+msgid "Screen edge"
 msgstr ""
 
 #: prefs.js:142
-msgid "Wave width"
+msgid "Bottom"
 msgstr ""
 
 #: prefs.js:143
-msgid "How many icons to each side grow"
+msgid "Left"
 msgstr ""
 
 #: prefs.js:144
-msgid "Elasticity"
+msgid "Right"
 msgstr ""
 
-#: prefs.js:145
-msgid "0 stops smoothly; higher values overshoot a little"
+#: prefs.js:146
+msgid "Monitor"
 msgstr ""
 
-#: prefs.js:149
-msgid "Glass"
+#: prefs.js:147
+msgid "Icon size"
 msgstr ""
 
-#: prefs.js:150
-msgid "Blur the background"
+#: prefs.js:148
+msgid "In pixels; icons shrink automatically when they do not fit"
 msgstr ""
 
 #: prefs.js:151
-msgid "Opacity"
+msgid "Magnification"
 msgstr ""
 
 #: prefs.js:152
-msgid "Running indicators"
+msgid "Magnify icons on hover"
 msgstr ""
 
 #: prefs.js:153
-msgid "One dot per open window"
+msgid "Maximum size"
+msgstr ""
+
+#: prefs.js:153
+msgid "In pixels"
+msgstr ""
+
+#: prefs.js:159
+msgid "Zoom Animation"
 msgstr ""
 
 #: prefs.js:160
-msgid "Behavior"
-msgstr ""
-
-#: prefs.js:164
-msgid "Auto-hide"
-msgstr ""
-
-#: prefs.js:165
-msgid "Mode"
-msgstr ""
-
-#: prefs.js:166
-msgid "Never hide"
-msgstr ""
-
-#: prefs.js:167
-msgid "Always hide (show at screen edge)"
-msgstr ""
-
-#: prefs.js:168
-msgid "Hide when a window overlaps"
+msgid "Changes apply right away: move the pointer over the dock to try them."
 msgstr ""
 
 #: prefs.js:170
-msgid "Hide delay"
+msgid "Restore Defaults"
+msgstr ""
+
+#: prefs.js:176
+msgid "Time to zoom in"
+msgstr ""
+
+#: prefs.js:177 prefs.js:179 prefs.js:210
+msgid "In milliseconds"
+msgstr ""
+
+#: prefs.js:178
+msgid "Time to zoom out"
+msgstr ""
+
+#: prefs.js:180
+msgid "Pointer follow delay"
 msgstr ""
 
 #: prefs.js:181
-msgid "Clicking an Already Focused App"
+msgid "In milliseconds; 0 follows the pointer exactly"
 msgstr ""
 
 #: prefs.js:182
+msgid "Wave width"
+msgstr ""
+
+#: prefs.js:183
+msgid "How many icons to each side grow"
+msgstr ""
+
+#: prefs.js:184
+msgid "Elasticity"
+msgstr ""
+
+#: prefs.js:185
+msgid "0 stops smoothly; higher values overshoot a little"
+msgstr ""
+
+#: prefs.js:189 src/styles.js:51
+msgid "Glass"
+msgstr ""
+
+#: prefs.js:190
+msgid "Blur the background"
+msgstr ""
+
+#: prefs.js:191
+msgid "Opacity"
+msgstr ""
+
+#: prefs.js:192
+msgid "Running indicators"
+msgstr ""
+
+#: prefs.js:193
+msgid "One dot per open window"
+msgstr ""
+
+#: prefs.js:200
+msgid "Behavior"
+msgstr ""
+
+#: prefs.js:204
+msgid "Auto-hide"
+msgstr ""
+
+#: prefs.js:205
+msgid "Mode"
+msgstr ""
+
+#: prefs.js:206
+msgid "Never hide"
+msgstr ""
+
+#: prefs.js:207
+msgid "Always hide (show at screen edge)"
+msgstr ""
+
+#: prefs.js:208
+msgid "Hide when a window overlaps"
+msgstr ""
+
+#: prefs.js:210
+msgid "Hide delay"
+msgstr ""
+
+#: prefs.js:221
+msgid "Clicking an Already Focused App"
+msgstr ""
+
+#: prefs.js:222
 msgid ""
 "Clicking an app in the background brings all of its windows to the front."
 msgstr ""
 
-#: prefs.js:184
+#: prefs.js:224
 msgid "With one window"
 msgstr ""
 
-#: prefs.js:185
+#: prefs.js:225
 msgid "Minimize"
 msgstr ""
 
-#: prefs.js:186
+#: prefs.js:226
 msgid "Do nothing"
 msgstr ""
 
-#: prefs.js:188
+#: prefs.js:228
 msgid "With several windows"
 msgstr ""
 
-#: prefs.js:189
+#: prefs.js:229
 msgid "Window previews"
 msgstr ""
 
-#: prefs.js:190
+#: prefs.js:230
 msgid "App Exposé"
 msgstr ""
 
-#: prefs.js:191
+#: prefs.js:231
 msgid "Cycle through windows"
 msgstr ""
 
-#: prefs.js:192
+#: prefs.js:232
 msgid "Minimize all"
 msgstr ""
 
-#: prefs.js:196
+#: prefs.js:236
 msgid "Icons"
 msgstr ""
 
-#: prefs.js:197
+#: prefs.js:237
 msgid "Bounce when launching an app"
 msgstr ""
 
-#: prefs.js:198
+#: prefs.js:238
 msgid "Show Applications button"
 msgstr ""
 
-#: prefs.js:205
+#: prefs.js:245
 msgid "Right Section"
 msgstr ""
 
-#: prefs.js:209
+#: prefs.js:249
 msgid "Recent Apps"
 msgstr ""
 
-#: prefs.js:210
+#: prefs.js:250
 msgid "Show recently used apps"
 msgstr ""
 
-#: prefs.js:211
+#: prefs.js:251
 msgid "How many"
 msgstr ""
 
-#: prefs.js:216
+#: prefs.js:256
 msgid "Folders"
 msgstr ""
 
-#: prefs.js:217
+#: prefs.js:257
 msgid "Show Downloads stack"
 msgstr ""
 
-#: prefs.js:218
+#: prefs.js:258
 msgid "Show Downloads as"
 msgstr ""
 
-#: prefs.js:219 src/stacks.js:256
+#: prefs.js:259 src/stacks.js:260
 msgid "Fan"
 msgstr ""
 
-#: prefs.js:220 src/stacks.js:257
+#: prefs.js:260 src/stacks.js:261
 msgid "Grid"
 msgstr ""
 
-#: prefs.js:222
+#: prefs.js:262
 msgid "Show Trash"
 msgstr ""
 
-#: src/dockItem.js:361
+#: src/dockItem.js:676
 msgid "Show All Windows"
 msgstr ""
 
-#: src/dockItem.js:575
+#: src/dockItem.js:899
+msgid "Apps"
+msgstr ""
+
+#: src/dockItem.js:1003
 msgid "Applications"
 msgstr ""
 
-#: src/dockManager.js:89
+#: src/dockManager.js:95
 msgid "Another dock is enabled"
 msgstr ""
 
-#: src/dockManager.js:90
+#: src/dockManager.js:96
 #, javascript-format
 msgid "%s is enabled too. Disable it to avoid two docks on screen."
 msgstr ""
 
-#: src/stacks.js:117 src/stacks.js:196
+#: src/stacks.js:117 src/stacks.js:194
 msgid "Open in Files"
 msgstr ""
 
-#: src/stacks.js:170
+#: src/stacks.js:168
 msgid "No files"
 msgstr ""
 
-#: src/stacks.js:254
+#: src/stacks.js:258
 msgid "Open Folder"
 msgstr ""
 
-#: src/stacks.js:255
+#: src/stacks.js:259
 msgid "View as"
+msgstr ""
+
+#: src/styles.js:52
+msgid "Floating dock with zoom"
+msgstr ""
+
+#: src/styles.js:56
+msgid "Strip"
+msgstr ""
+
+#: src/styles.js:57
+msgid ""
+"Inspired by Windows XP: full-width bar, labeled Apps button, open apps on "
+"raised plates"
+msgstr ""
+
+#: src/styles.js:69
+msgid "Orb"
+msgstr ""
+
+#: src/styles.js:70
+msgid ""
+"Inspired by Windows Vista: round Apps button that rises above the bar, soft "
+"glow on hover"
+msgstr ""
+
+#: src/styles.js:82
+msgid "Glow"
+msgstr ""
+
+#: src/styles.js:83
+msgid ""
+"Inspired by Windows 7: large icons, hover glow in the color of the icon that "
+"follows the pointer"
+msgstr ""
+
+#: src/styles.js:95
+msgid "Line"
+msgstr ""
+
+#: src/styles.js:96
+msgid "Inspired by Windows 10: flat full-width bar, a line under open apps"
+msgstr ""
+
+#: src/styles.js:108
+msgid "Center"
+msgstr ""
+
+#: src/styles.js:109
+msgid ""
+"Inspired by Windows 11: centered icons, a pill that grows on the focused "
+"app, icons that press in"
+msgstr ""
+
+#: src/styles.js:122
+msgid "Bevel"
+msgstr ""
+
+#: src/styles.js:123
+msgid ""
+"Inspired by Windows 95 and 98: raised buttons that sink when focused, no "
+"fades"
+msgstr ""
+
+#: src/styles.js:135
+msgid "Shelf"
+msgstr ""
+
+#: src/styles.js:136
+msgid ""
+"Inspired by Mac OS X Leopard: icons stand on a glass shelf, with reflections"
+msgstr ""
+
+#: src/styles.js:144
+msgid "Neon"
+msgstr ""
+
+#: src/styles.js:145
+msgid ""
+"Glowing edge and a halo in the accent color that pulses on the focused app"
+msgstr ""
+
+#: src/styles.js:151
+msgid "Dash"
+msgstr ""
+
+#: src/styles.js:152
+msgid ""
+"Inspired by the GNOME dash: no zoom, rounded highlight, Apps button at the "
+"end"
 msgstr ""
 
 #: src/trash.js:54
@@ -332,7 +436,7 @@ msgstr ""
 msgid "Empty Trash…"
 msgstr ""
 
-#: src/utils.js:100
+#: src/utils.js:102
 #, javascript-format
 msgid "Could not open %s"
 msgstr ""

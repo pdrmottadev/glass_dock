@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glass-dock 1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/pdrmottadev/glass_dock/issues\n"
-"POT-Creation-Date: 2026-11-21 09:55-0300\n"
+"POT-Creation-Date: 2026-11-21 12:43-0300\n"
 "PO-Revision-Date: 2026-11-20 18:00-0300\n"
 "Last-Translator: pdrmottadev\n"
 "Language-Team: Spanish\n"
@@ -15,291 +15,417 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: prefs.js:72
+#: prefs.js:46 prefs.js:133
+msgid "Style"
+msgstr "Estilo"
+
+#: prefs.js:104
 msgid "Primary monitor"
 msgstr "Monitor principal"
 
-#: prefs.js:85
+#: prefs.js:117
 #, javascript-format
 msgid "%s (disconnected)"
 msgstr "%s (desconectado)"
 
-#: prefs.js:96
+#: prefs.js:128
 msgid "Appearance"
 msgstr "Apariencia"
 
-#: prefs.js:100
+#: prefs.js:134
+msgid ""
+"Every style keeps the glass look and changes the shape, indicators and "
+"effects. Picking one also sets its recommended icon size and zoom."
+msgstr ""
+"Todos los estilos mantienen el cristal y cambian la forma, los indicadores y "
+"los efectos. Al elegir uno también se aplican su tamaño de iconos y su zoom "
+"recomendados."
+
+#: prefs.js:140
 msgid "Position and Size"
 msgstr "Posición y tamaño"
 
-#: prefs.js:101
+#: prefs.js:141
 msgid "Screen edge"
 msgstr "Borde de la pantalla"
 
-#: prefs.js:102
+#: prefs.js:142
 msgid "Bottom"
 msgstr "Abajo"
 
-#: prefs.js:103
+#: prefs.js:143
 msgid "Left"
 msgstr "Izquierda"
 
-#: prefs.js:104
+#: prefs.js:144
 msgid "Right"
 msgstr "Derecha"
 
-#: prefs.js:106
+#: prefs.js:146
 msgid "Monitor"
 msgstr "Monitor"
 
-#: prefs.js:107
+#: prefs.js:147
 msgid "Icon size"
 msgstr "Tamaño de los iconos"
 
-#: prefs.js:108
+#: prefs.js:148
 msgid "In pixels; icons shrink automatically when they do not fit"
 msgstr "En píxeles; los iconos se reducen solos cuando no caben en la pantalla"
 
-#: prefs.js:111
+#: prefs.js:151
 msgid "Magnification"
 msgstr "Ampliación"
 
-#: prefs.js:112
+#: prefs.js:152
 msgid "Magnify icons on hover"
 msgstr "Ampliar los iconos al pasar el ratón"
 
-#: prefs.js:113
+#: prefs.js:153
 msgid "Maximum size"
 msgstr "Tamaño máximo"
 
-#: prefs.js:113
+#: prefs.js:153
 msgid "In pixels"
 msgstr "En píxeles"
 
-#: prefs.js:119
+#: prefs.js:159
 msgid "Zoom Animation"
 msgstr "Animación del zoom"
 
-#: prefs.js:120
+#: prefs.js:160
 msgid "Changes apply right away: move the pointer over the dock to try them."
-msgstr "Los cambios se aplican al momento: pase el puntero por el dock para probarlos."
+msgstr ""
+"Los cambios se aplican al momento: pase el puntero por el dock para "
+"probarlos."
 
-#: prefs.js:130
+#: prefs.js:170
 msgid "Restore Defaults"
 msgstr "Restaurar valores predeterminados"
 
-#: prefs.js:136
+#: prefs.js:176
 msgid "Time to zoom in"
 msgstr "Tiempo para ampliar"
 
-#: prefs.js:137 prefs.js:139 prefs.js:170
+#: prefs.js:177 prefs.js:179 prefs.js:210
 msgid "In milliseconds"
 msgstr "En milisegundos"
 
-#: prefs.js:138
+#: prefs.js:178
 msgid "Time to zoom out"
 msgstr "Tiempo para reducir"
 
-#: prefs.js:140
+#: prefs.js:180
 msgid "Pointer follow delay"
 msgstr "Retraso al seguir el puntero"
 
-#: prefs.js:141
+#: prefs.js:181
 msgid "In milliseconds; 0 follows the pointer exactly"
 msgstr "En milisegundos; 0 sigue el puntero exactamente"
 
-#: prefs.js:142
+#: prefs.js:182
 msgid "Wave width"
 msgstr "Ancho de la onda"
 
-#: prefs.js:143
+#: prefs.js:183
 msgid "How many icons to each side grow"
 msgstr "Cuántos iconos crecen a cada lado"
 
-#: prefs.js:144
+#: prefs.js:184
 msgid "Elasticity"
 msgstr "Elasticidad"
 
-#: prefs.js:145
+#: prefs.js:185
 msgid "0 stops smoothly; higher values overshoot a little"
 msgstr "0 se detiene con suavidad; los valores altos se pasan un poco"
 
-#: prefs.js:149
+#: prefs.js:189 src/styles.js:51
 msgid "Glass"
 msgstr "Cristal"
 
-#: prefs.js:150
+#: prefs.js:190
 msgid "Blur the background"
 msgstr "Desenfocar el fondo"
 
-#: prefs.js:151
+#: prefs.js:191
 msgid "Opacity"
 msgstr "Opacidad"
 
-#: prefs.js:152
+#: prefs.js:192
 msgid "Running indicators"
 msgstr "Indicadores de aplicaciones abiertas"
 
-#: prefs.js:153
+#: prefs.js:193
 msgid "One dot per open window"
 msgstr "Un punto por cada ventana abierta"
 
-#: prefs.js:160
+#: prefs.js:200
 msgid "Behavior"
 msgstr "Comportamiento"
 
-#: prefs.js:164
+#: prefs.js:204
 msgid "Auto-hide"
 msgstr "Ocultar automáticamente"
 
-#: prefs.js:165
+#: prefs.js:205
 msgid "Mode"
 msgstr "Modo"
 
-#: prefs.js:166
+#: prefs.js:206
 msgid "Never hide"
 msgstr "No ocultar nunca"
 
-#: prefs.js:167
+#: prefs.js:207
 msgid "Always hide (show at screen edge)"
 msgstr "Ocultar siempre (mostrar en el borde de la pantalla)"
 
-#: prefs.js:168
+#: prefs.js:208
 msgid "Hide when a window overlaps"
 msgstr "Ocultar cuando una ventana se superponga"
 
-#: prefs.js:170
+#: prefs.js:210
 msgid "Hide delay"
 msgstr "Retraso para ocultar"
 
-#: prefs.js:181
+#: prefs.js:221
 msgid "Clicking an Already Focused App"
 msgstr "Al hacer clic en una aplicación ya enfocada"
 
-#: prefs.js:182
+#: prefs.js:222
 msgid ""
 "Clicking an app in the background brings all of its windows to the front."
 msgstr ""
 "Hacer clic en una aplicación en segundo plano trae todas sus ventanas al "
 "frente."
 
-#: prefs.js:184
+#: prefs.js:224
 msgid "With one window"
 msgstr "Con una ventana"
 
-#: prefs.js:185
+#: prefs.js:225
 msgid "Minimize"
 msgstr "Minimizar"
 
-#: prefs.js:186
+#: prefs.js:226
 msgid "Do nothing"
 msgstr "No hacer nada"
 
-#: prefs.js:188
+#: prefs.js:228
 msgid "With several windows"
 msgstr "Con varias ventanas"
 
-#: prefs.js:189
+#: prefs.js:229
 msgid "Window previews"
 msgstr "Vistas previas de las ventanas"
 
-#: prefs.js:190
+#: prefs.js:230
 msgid "App Exposé"
 msgstr "App Exposé"
 
-#: prefs.js:191
+#: prefs.js:231
 msgid "Cycle through windows"
 msgstr "Alternar entre ventanas"
 
-#: prefs.js:192
+#: prefs.js:232
 msgid "Minimize all"
 msgstr "Minimizar todas"
 
-#: prefs.js:196
+#: prefs.js:236
 msgid "Icons"
 msgstr "Iconos"
 
-#: prefs.js:197
+#: prefs.js:237
 msgid "Bounce when launching an app"
 msgstr "Animar el icono al abrir una aplicación"
 
-#: prefs.js:198
+#: prefs.js:238
 msgid "Show Applications button"
 msgstr "Mostrar el botón de Aplicaciones"
 
-#: prefs.js:205
+#: prefs.js:245
 msgid "Right Section"
 msgstr "Sección derecha"
 
-#: prefs.js:209
+#: prefs.js:249
 msgid "Recent Apps"
 msgstr "Aplicaciones recientes"
 
-#: prefs.js:210
+#: prefs.js:250
 msgid "Show recently used apps"
 msgstr "Mostrar aplicaciones usadas recientemente"
 
-#: prefs.js:211
+#: prefs.js:251
 msgid "How many"
 msgstr "Cantidad"
 
-#: prefs.js:216
+#: prefs.js:256
 msgid "Folders"
 msgstr "Carpetas"
 
-#: prefs.js:217
+#: prefs.js:257
 msgid "Show Downloads stack"
 msgstr "Mostrar la pila de Descargas"
 
-#: prefs.js:218
+#: prefs.js:258
 msgid "Show Downloads as"
 msgstr "Mostrar Descargas como"
 
-#: prefs.js:219 src/stacks.js:256
+#: prefs.js:259 src/stacks.js:260
 msgid "Fan"
 msgstr "Abanico"
 
-#: prefs.js:220 src/stacks.js:257
+#: prefs.js:260 src/stacks.js:261
 msgid "Grid"
 msgstr "Cuadrícula"
 
-#: prefs.js:222
+#: prefs.js:262
 msgid "Show Trash"
 msgstr "Mostrar la Papelera"
 
-#: src/dockItem.js:361
+#: src/dockItem.js:676
 msgid "Show All Windows"
 msgstr "Mostrar todas las ventanas"
 
-#: src/dockItem.js:575
+#: src/dockItem.js:899
+msgid "Apps"
+msgstr "Apps"
+
+#: src/dockItem.js:1003
 msgid "Applications"
 msgstr "Aplicaciones"
 
-#: src/dockManager.js:89
+#: src/dockManager.js:95
 msgid "Another dock is enabled"
 msgstr "Hay otro dock activo"
 
-#: src/dockManager.js:90
+#: src/dockManager.js:96
 #, javascript-format
 msgid "%s is enabled too. Disable it to avoid two docks on screen."
 msgstr ""
 "%s también está activo. Desactívelo para no tener dos docks en pantalla."
 
-#: src/stacks.js:117 src/stacks.js:196
+#: src/stacks.js:117 src/stacks.js:194
 msgid "Open in Files"
 msgstr "Abrir en Archivos"
 
-#: src/stacks.js:170
+#: src/stacks.js:168
 msgid "No files"
 msgstr "No hay archivos"
 
-#: src/stacks.js:254
+#: src/stacks.js:258
 msgid "Open Folder"
 msgstr "Abrir carpeta"
 
-#: src/stacks.js:255
+#: src/stacks.js:259
 msgid "View as"
 msgstr "Ver como"
+
+#: src/styles.js:52
+msgid "Floating dock with zoom"
+msgstr "Dock flotante con zoom"
+
+#: src/styles.js:56
+msgid "Strip"
+msgstr "Franja"
+
+#: src/styles.js:57
+msgid ""
+"Inspired by Windows XP: full-width bar, labeled Apps button, open apps on "
+"raised plates"
+msgstr ""
+"Inspirado en Windows XP: barra de lado a lado, botón Apps con etiqueta, apps "
+"abiertas sobre placas en relieve"
+
+#: src/styles.js:69
+msgid "Orb"
+msgstr "Orbe"
+
+#: src/styles.js:70
+msgid ""
+"Inspired by Windows Vista: round Apps button that rises above the bar, soft "
+"glow on hover"
+msgstr ""
+"Inspirado en Windows Vista: botón Apps redondo que sobresale de la barra, "
+"brillo suave al pasar el puntero"
+
+#: src/styles.js:82
+msgid "Glow"
+msgstr "Brillo"
+
+#: src/styles.js:83
+msgid ""
+"Inspired by Windows 7: large icons, hover glow in the color of the icon that "
+"follows the pointer"
+msgstr ""
+"Inspirado en Windows 7: iconos grandes, brillo del color del icono que sigue "
+"al puntero"
+
+#: src/styles.js:95
+msgid "Line"
+msgstr "Línea"
+
+#: src/styles.js:96
+msgid "Inspired by Windows 10: flat full-width bar, a line under open apps"
+msgstr ""
+"Inspirado en Windows 10: barra plana de lado a lado, una línea bajo las apps "
+"abiertas"
+
+#: src/styles.js:108
+msgid "Center"
+msgstr "Centro"
+
+#: src/styles.js:109
+msgid ""
+"Inspired by Windows 11: centered icons, a pill that grows on the focused "
+"app, icons that press in"
+msgstr ""
+"Inspirado en Windows 11: iconos centrados, una píldora que crece en la app "
+"con el foco, iconos que se hunden al pulsar"
+
+#: src/styles.js:122
+msgid "Bevel"
+msgstr "Relieve"
+
+#: src/styles.js:123
+msgid ""
+"Inspired by Windows 95 and 98: raised buttons that sink when focused, no "
+"fades"
+msgstr ""
+"Inspirado en Windows 95 y 98: botones en relieve que se hunden en la app con "
+"el foco, sin transiciones"
+
+#: src/styles.js:135
+msgid "Shelf"
+msgstr "Estante"
+
+#: src/styles.js:136
+msgid ""
+"Inspired by Mac OS X Leopard: icons stand on a glass shelf, with reflections"
+msgstr ""
+"Inspirado en Mac OS X Leopard: iconos sobre un estante de cristal, con "
+"reflejos"
+
+#: src/styles.js:144
+msgid "Neon"
+msgstr "Neón"
+
+#: src/styles.js:145
+msgid ""
+"Glowing edge and a halo in the accent color that pulses on the focused app"
+msgstr ""
+"Borde luminoso y un halo del color de acento que late en la app con el foco"
+
+#: src/styles.js:151
+msgid "Dash"
+msgstr "Dash"
+
+#: src/styles.js:152
+msgid ""
+"Inspired by the GNOME dash: no zoom, rounded highlight, Apps button at the "
+"end"
+msgstr ""
+"Inspirado en el dash de GNOME: sin zoom, resaltado redondeado, botón Apps al "
+"final"
 
 #: src/trash.js:54
 msgid "Trash"
@@ -333,7 +459,7 @@ msgstr "Abrir"
 msgid "Empty Trash…"
 msgstr "Vaciar la Papelera…"
 
-#: src/utils.js:100
+#: src/utils.js:102
 #, javascript-format
 msgid "Could not open %s"
 msgstr "No se pudo abrir %s"

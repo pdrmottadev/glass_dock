@@ -6,6 +6,7 @@
 // and can maintain this code.
 
 // The dock itself: actors, layout, magnification, tooltips and DnD.
+import Cairo from 'cairo';
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
@@ -22,8 +23,9 @@ import {DockAppIcon, DockAppsButton, DockSeparator} from './dockItem.js';
 import {AppExpose} from './expose.js';
 import {computeLayout, stepSpring} from './magnifier.js';
 import {DownloadsStack} from './stacks.js';
+import {styleFor} from './styles.js';
 import {TrashItem} from './trash.js';
-import {EdgeGeometry, getAppFromSource} from './utils.js';
+import {EdgeGeometry, getAppFromSource, iconColor} from './utils.js';
 import {WindowPreviewsPopup} from './windowPreviews.js';
 
 const EDGE_MARGIN = 8;
@@ -54,6 +56,7 @@ export class Dock {
         this._interfaceSettings = interfaceSettings;
         this._model = model;
         this._dark = dark;
+        this.style = styleFor(settings.get_string('dock-style'));
 
         this.monitorIndex = resolveMonitorIndex(settings.get_string('monitor-connector'));
         this.monitor = Main.layoutManager.monitors[this.monitorIndex];
@@ -76,6 +79,7 @@ export class Dock {
         this._tooltipItem = null;
         this._items = [];
         this._itemMap = new Map();
+        this._iconColors = new Map();
 
         this._buildActors();
 
@@ -117,8 +121,9 @@ export class Dock {
         const magSize = magEnabled
             ? Math.max(configured, this.settings.get_int('magnification-size'))
             : configured;
-        const pad = Math.round(Math.max(7, iconSize * 0.15));
-        const spacing = Math.round(Math.max(4, iconSize * 0.12));
+        const style = this.style;
+        const pad = Math.round(Math.max(style.panel ? 5 : 7, iconSize * style.padFactor));
+        const spacing = Math.round(Math.max(4, iconSize * style.spacingFactor));
         const thickness = iconSize + 2 * pad;
         return {
             iconSize,
@@ -131,9 +136,9 @@ export class Dock {
             separatorSize: Math.round(Math.max(12, iconSize * 0.36)),
             thickness,
             zone: magEnabled ? magSize - iconSize : 0,
-            radius: Math.round(thickness * 0.38),
+            radius: style.panel ? 0 : Math.round(thickness * style.radiusFactor),
             influence: (iconSize + spacing) * this.settings.get_double('magnification-spread'),
-            margin: EDGE_MARGIN,
+            margin: style.panel ? 0 : EDGE_MARGIN,
         };
     }
 
@@ -146,7 +151,8 @@ export class Dock {
         // target underneath it. trackFullscreen hides it in fullscreen.
         this._outer = new St.Widget({
             name: 'glassDockOuter',
-            style_class: this._dark ? 'glass-dock-root glass-dock-dark' : 'glass-dock-root',
+            style_class: ['glass-dock-root', this.styleClass, this._dark ? 'glass-dock-dark' : '']
+                .filter(Boolean).join(' '),
             reactive: false,
             x: mon.x,
             y: mon.y,
@@ -162,7 +168,7 @@ export class Dock {
         // The reactive dock (bar + magnification zone).
         this._actor = new St.Widget({
             name: 'glassDock',
-            style_class: `glass-dock glass-dock-${this.geom.position}`,
+            style_class: `glass-dock glass-dock-${this.geom.position}${this.style.panel ? ' glass-dock-panel' : ''}`,
             reactive: true,
             track_hover: true,
         });
@@ -184,10 +190,16 @@ export class Dock {
         }
         this._actor.add_child(this._blur);
 
-        this._background = new St.Widget({
-            style_class: 'glass-dock-background',
-            style: this._glassStyle(),
-        });
+        if (this.shelfActive) {
+            // The shelf is a trapezoid, which CSS cannot draw.
+            this._background = new St.DrawingArea({style_class: 'glass-dock-shelf'});
+            this._background.connect('repaint', area => this._paintShelf(area));
+        } else {
+            this._background = new St.Widget({
+                style_class: 'glass-dock-background',
+                style: this._backgroundStyle(),
+            });
+        }
         this._actor.add_child(this._background);
 
         this._itemsLayer = new St.Widget();
@@ -270,22 +282,85 @@ export class Dock {
         if (metrics.iconSize === this.metrics.iconSize)
             return;
         this.metrics = metrics;
-        this._background.style = this._glassStyle();
+        if (!this.shelfActive)
+            this._background.style = this._backgroundStyle();
         this._updateStruts();
         this._iconGeometryKey = '';
     }
 
-    _glassStyle() {
+    get styleClass() {
+        return `glass-dock-style-${this.style.id}`;
+    }
+
+    /** Whether the glass is drawn as a shelf in perspective. */
+    get shelfActive() {
+        return this.style.shelf && this.geom.position === 'bottom';
+    }
+
+    _glassColor() {
+        return this._dark ? [28, 28, 32] : [250, 250, 252];
+    }
+
+    _backgroundStyle() {
         const op = this.settings.get_double('glass-opacity');
         const r = this.metrics.radius;
         const clamp = v => Math.max(0, Math.min(1, v)).toFixed(3);
-        const [cr, cg, cb] = this._dark ? [28, 28, 32] : [250, 250, 252];
+        const [cr, cg, cb] = this._glassColor();
         const top = clamp(op + 0.08);
         const bottom = clamp(op - 0.04);
-        return `border-radius: ${r}px;` +
+        let style = `border-radius: ${r}px;` +
             'background-gradient-direction: vertical;' +
             `background-gradient-start: rgba(${cr},${cg},${cb},${top});` +
             `background-gradient-end: rgba(${cr},${cg},${cb},${bottom});`;
+        if (this.style.panel) {
+            // A bar glued to the edge only has a rim on the side facing the screen.
+            const side = {bottom: 'top', left: 'right', right: 'left'}[this.geom.position];
+            style += `border-width: 0; border-${side}-width: 1px;`;
+        }
+        return style;
+    }
+
+    /** Height of the shelf slab and how far its back edge is inset. */
+    _shelfShape(height) {
+        const m = this.metrics;
+        const slab = Math.min(height, m.pad + Math.round(m.iconSize * 0.3));
+        return {slab, slant: Math.round(slab * 1.2), front: Math.max(2, Math.round(slab * 0.16))};
+    }
+
+    _paintShelf(area) {
+        const cr = area.get_context();
+        const [w, h] = area.get_surface_size();
+        const {slab, slant, front} = this._shelfShape(h);
+        const op = this.settings.get_double('glass-opacity');
+        const [r, g, b] = this._glassColor().map(c => c / 255);
+        const top = h - slab;
+
+        // Top face, seen from above: narrower at the back.
+        cr.moveTo(slant, top);
+        cr.lineTo(w - slant, top);
+        cr.lineTo(w, h - front);
+        cr.lineTo(0, h - front);
+        cr.closePath();
+        const face = new Cairo.LinearGradient(0, top, 0, h - front);
+        face.addColorStopRGBA(0, r, g, b, Math.min(1, op + 0.25));
+        face.addColorStopRGBA(1, r, g, b, Math.max(0, op - 0.05));
+        cr.setSource(face);
+        cr.fillPreserve();
+        cr.setSourceRGBA(1, 1, 1, this._dark ? 0.18 : 0.4);
+        cr.setLineWidth(1);
+        cr.stroke();
+
+        // Front edge.
+        cr.rectangle(0, h - front, w, front);
+        cr.setSourceRGBA(1, 1, 1, this._dark ? 0.3 : 0.65);
+        cr.fill();
+
+        // Rim along the back edge.
+        cr.moveTo(slant, top + 0.5);
+        cr.lineTo(w - slant, top + 0.5);
+        cr.setSourceRGBA(1, 1, 1, this._dark ? 0.35 : 0.85);
+        cr.stroke();
+        cr.$dispose();
     }
 
     // ---- Items -----------------------------------------------------------
@@ -293,13 +368,17 @@ export class Dock {
     _desiredItems() {
         const s = this.settings;
         const list = [];
-        if (s.get_boolean('show-apps-button'))
-            list.push({key: 'apps-button', create: () => new DockAppsButton(this)});
+        const appsButton = {key: 'apps-button', create: () => new DockAppsButton(this)};
+        const showApps = s.get_boolean('show-apps-button');
+        if (showApps && !this.style.appsAtEnd)
+            list.push(appsButton);
 
         for (const app of this._model.getPinned())
             list.push({key: `app:${app.get_id()}`, create: () => new DockAppIcon(this, app)});
         for (const app of this._model.getRunningUnpinned())
             list.push({key: `app:${app.get_id()}`, create: () => new DockAppIcon(this, app)});
+        if (showApps && this.style.appsAtEnd)
+            list.push(appsButton);
 
         const recent = this._model.getRecent();
         if (recent.length) {
@@ -406,7 +485,8 @@ export class Dock {
         }
 
         const baseLength = entries.reduce((a, e) => a + e.base, 0) + 2 * m.endPad;
-        const baseStart = (monMain - baseLength) / 2;
+        const startAligned = this.style.panel && this.style.align === 'start';
+        const baseStart = startAligned ? 0 : (monMain - baseLength) / 2;
 
         let pointer = null;
         if (focus !== null && amount > 0)
@@ -423,10 +503,13 @@ export class Dock {
             radius: m.influence,
         });
 
-        let start = baseStart + layout.anchorShift;
-        start = Math.max(m.margin, Math.min(start, monMain - layout.length - m.margin));
-        if (layout.length > monMain - 2 * m.margin)
-            start = (monMain - layout.length) / 2;
+        let start = 0;
+        if (!startAligned) {
+            start = baseStart + layout.anchorShift;
+            start = Math.max(m.margin, Math.min(start, monMain - layout.length - m.margin));
+            if (layout.length > monMain - 2 * m.margin)
+                start = (monMain - layout.length) / 2;
+        }
 
         const zoneWanted = amount > 0 ||
             (this._actor.hover && !this.dragging && !this._menuPending &&
@@ -450,14 +533,17 @@ export class Dock {
         const m = this.metrics;
         const geom = this.geom;
         const monCross = geom.vertical ? this.monitor.width : this.monitor.height;
+        const monMain = geom.vertical ? this.monitor.height : this.monitor.width;
         const amount = m.magEnabled ? this._magAmount.value : 0;
         const L = this._layoutFor(amount, this._focus.value);
         const {crossTotal} = L;
 
         // Round each edge once: rounding offsets and sizes at every level
-        // adds up and makes icons wobble while the zoom animates.
-        const mainStart = Math.round(L.start);
-        const mainLength = Math.round(L.start + L.length) - mainStart;
+        // adds up and makes icons wobble while the zoom animates. A panel
+        // spans the whole monitor whatever its contents.
+        const contentStart = Math.round(L.start);
+        const mainStart = this.style.panel ? 0 : contentStart;
+        const mainLength = this.style.panel ? monMain : Math.round(L.start + L.length) - contentStart;
 
         const [ax, ay, aw, ah] = geom.rect(monCross, mainStart, m.margin, mainLength, crossTotal);
         this._actor.set_position(ax, ay);
@@ -467,14 +553,21 @@ export class Dock {
         this._background.set_position(bx, by);
         this._background.set_size(bw, bh);
 
-        const inset = Math.ceil(m.radius * 0.3);
-        this._blur.set_position(bx + inset, by + inset);
-        this._blur.set_size(Math.max(0, bw - 2 * inset), Math.max(0, bh - 2 * inset));
+        if (this.shelfActive) {
+            const {slab, slant} = this._shelfShape(bh);
+            this._blur.set_position(bx + slant, by + bh - slab);
+            this._blur.set_size(Math.max(0, bw - 2 * slant), slab);
+        } else {
+            const inset = Math.ceil(m.radius * 0.3);
+            this._blur.set_position(bx + inset, by + inset);
+            this._blur.set_size(Math.max(0, bw - 2 * inset), Math.max(0, bh - 2 * inset));
+        }
 
         this._itemsLayer.set_position(0, 0);
         this._itemsLayer.set_size(aw, ah);
 
         const offset = L.start - mainStart;
+        L.contentOffset = offset;
         for (const p of L.placed) {
             if (!p.item)
                 continue;
@@ -542,7 +635,9 @@ export class Dock {
         const m = this.metrics;
         const mon = this.monitor;
         const monCross = this.geom.vertical ? mon.width : mon.height;
-        const [x, y, w, h] = this.geom.rect(monCross, L.baseStart, 0, L.baseLength, m.margin + m.thickness);
+        const monMain = this.geom.vertical ? mon.height : mon.width;
+        const [start, length] = this.style.panel ? [0, monMain] : [L.baseStart, L.baseLength];
+        const [x, y, w, h] = this.geom.rect(monCross, start, 0, length, m.margin + m.thickness);
         return new Mtk.Rectangle({
             x: Math.round(mon.x + x), y: Math.round(mon.y + y),
             width: Math.round(w), height: Math.round(h),
@@ -551,6 +646,29 @@ export class Dock {
 
     get dark() {
         return this._dark;
+    }
+
+    /** The accent color from GNOME Settings, as [r, g, b]. */
+    get accentColor() {
+        if (!this._accentColor) {
+            // St resolves -st-accent-color; read it back from a styled actor.
+            const probe = new St.Widget({style: 'color: -st-accent-color;'});
+            this._outer.add_child(probe);
+            const color = probe.get_theme_node().get_foreground_color();
+            this._accentColor = [color.red, color.green, color.blue];
+            probe.destroy();
+        }
+        return this._accentColor;
+    }
+
+    /** Main color of an icon, computed once per icon (see iconColor()). */
+    iconColor(gicon) {
+        if (!gicon)
+            return null;
+        const key = gicon.to_string();
+        if (!this._iconColors.has(key))
+            this._iconColors.set(key, iconColor(gicon));
+        return this._iconColors.get(key);
     }
 
     get model() {
@@ -1020,7 +1138,9 @@ export class Dock {
         const slotItems = new Set(slots.map(s => s[1]));
 
         // Walk the layout ignoring the placeholder gap to avoid flicker.
-        let cursor = this.metrics.endPad;
+        // Items start this far into the actor in a centered panel; a floating
+        // dock only differs by sub-pixel rounding.
+        let cursor = Math.round(this._lastLayout.contentOffset ?? 0) + this.metrics.endPad;
         let favPos = 0;
         for (const p of this._lastLayout.placed) {
             if (!p.item)

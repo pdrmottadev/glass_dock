@@ -10,6 +10,7 @@ import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
+import Pango from 'gi://Pango';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
@@ -24,6 +25,11 @@ const BOUNCE_TIME = 220;
 const PRESENCE_TIME = 260;
 const SCROLL_COOLDOWN_MS = 250;
 const MAX_DOTS = 4;
+const HOVER_FADE_TIME = 160;
+const INDICATOR_TIME = 220;
+const HALO_PULSE_TIME = 1400;
+const PRESS_SCALE = 0.85;
+const REFLECTION_OPACITY = 0.3;
 
 // GNOME 51 renamed ONE/TWO to PRIMARY/MIDDLE (and warns on the old names);
 // GNOME 50 only has the old ones.
@@ -40,6 +46,20 @@ export function menuSideFor(position) {
     default:
         return St.Side.BOTTOM;
     }
+}
+
+/** Inline style of a round glow in one color that fades out to its edge. */
+function radialGlow([r, g, b], alpha) {
+    return 'background-gradient-direction: radial;' +
+        `background-gradient-start: rgba(${r},${g},${b},${alpha});` +
+        `background-gradient-end: rgba(${r},${g},${b},0);`;
+}
+
+function setClass(actor, name, on) {
+    if (on)
+        actor.add_style_class_name(name);
+    else
+        actor.remove_style_class_name(name);
 }
 
 /**
@@ -73,17 +93,81 @@ class DockItem extends St.Button {
         this._content = new St.Widget({x_expand: true, y_expand: true});
         this.set_child(this._content);
 
+        const style = dock.style;
+        this._style = style;
+        this._focused = false;
+
+        // Behind the icon: the plate marks open (or focused) apps in some
+        // styles, and the hover layer lights up under the pointer.
+        this._plate = new St.Widget({style_class: 'glass-dock-plate', visible: false});
+        this._content.add_child(this._plate);
+        this._plateRadius = -1;
+        if (style.hover) {
+            this._hoverLayer = new St.Widget({
+                style_class: `glass-dock-hover glass-dock-hover-${style.hover}`,
+                opacity: 0,
+                clip_to_allocation: style.hover === 'tint',
+            });
+            this._content.add_child(this._hoverLayer);
+            this._hoverRadius = -1;
+        }
+        if (style.hover === 'halo')
+            this._hoverLayer.style = radialGlow(dock.accentColor, 1);
+        if (style.hover === 'tint') {
+            this._glow = new St.Widget({style: radialGlow(dock.accentColor, 0.9)});
+            this._hoverLayer.add_child(this._glow);
+            this._glowMain = null;
+            this.connect('motion-event', (actor, event) => {
+                this._moveGlow(...event.get_coords());
+                return Clutter.EVENT_PROPAGATE;
+            });
+        }
+
         this._renderSize = dock.metrics.magSize;
         this._iconActor = this.createIconActor(this._renderSize);
         this._content.add_child(this._iconActor);
 
-        // Running indicator: one dot per window (up to MAX_DOTS).
+        // Mirror image of the icon on the shelf.
+        if (style.shelf && dock.geom.position === 'bottom') {
+            this._reflectionClip = new St.Widget({clip_to_allocation: true});
+            this._reflection = new Clutter.Clone({source: this._iconActor});
+            this._reflectionClip.add_child(this._reflection);
+            this._content.insert_child_below(this._reflectionClip, this._iconActor);
+            this._iconActor.connect('notify::translation-y', icon => {
+                this._reflection.translation_y = -icon.translation_y;
+            });
+        }
+
+        // Running indicator: one dot per window (up to MAX_DOTS), or a line
+        // or pill whose length shows whether the app is focused.
         this._dotCount = 0;
         this._dots = [];
-        for (let i = 0; i < MAX_DOTS; i++) {
-            const dot = new St.Widget({style_class: 'glass-dock-dot', visible: false});
-            this._content.add_child(dot);
-            this._dots.push(dot);
+        if (style.indicator === 'dots' || style.indicator === 'glow') {
+            for (let i = 0; i < MAX_DOTS; i++) {
+                const dot = new St.Widget({style_class: 'glass-dock-dot', visible: false});
+                this._content.add_child(dot);
+                this._dots.push(dot);
+            }
+        }
+        if (style.indicator === 'line' || style.indicator === 'pill') {
+            this._bar = new St.Widget({
+                style_class: `glass-dock-bar glass-dock-bar-${style.indicator}`,
+                visible: false,
+            });
+            this._content.add_child(this._bar);
+            this._barExtra = new St.Widget({
+                style_class: `glass-dock-bar glass-dock-bar-${style.indicator} glass-dock-bar-extra`,
+                visible: false,
+            });
+            this._content.add_child(this._barExtra);
+            this._focusAmount = new St.Adjustment({actor: this, lower: 0, upper: 1, value: 0});
+            this._focusAmount.connect('notify::value', () => this._dock.queueRelayout());
+        }
+
+        if (style.press) {
+            this._press = new St.Adjustment({actor: this, lower: 0, upper: 1, value: 0});
+            this._press.connect('notify::value', () => this._dock.queueRelayout());
+            this.connect('notify::pressed', () => this._onPressed());
         }
 
         this._menu = null;
@@ -100,7 +184,10 @@ class DockItem extends St.Button {
         rightClick.connect('recognize', () => this.popupMenu());
         this.add_action(rightClick);
 
-        this.connect('notify::hover', () => this._dock.onItemHover(this, this.hover));
+        this.connect('notify::hover', () => {
+            this._dock.onItemHover(this, this.hover);
+            this._syncHover();
+        });
         this.connect('destroy', () => this._onDestroy());
     }
 
@@ -156,9 +243,25 @@ class DockItem extends St.Button {
         this._iconActor.set_size(size, size);
         const [px, py] = geom.edgePivot;
         this._iconActor.set_pivot_point(px, py);
-        const k = (m.iconSize * scale * this.presence.value) / size;
+        const pressed = this._press ? 1 - (1 - PRESS_SCALE) * this._press.value : 1;
+        const k = (m.iconSize * scale * this.presence.value * pressed) / size;
         this._iconActor.set_scale(k, k);
         this._iconActor.opacity = Math.round(255 * this.presence.value);
+
+        if (this._reflection) {
+            const cellMain = geom.vertical ? this.height : this.width;
+            this._reflectionClip.set_position(0, Math.round(crossSize - m.pad));
+            this._reflectionClip.set_size(cellMain, m.pad);
+            // Flipped around its top edge, so the icon's bottom touches the clip's top.
+            this._reflection.set_size(size, size);
+            this._reflection.set_pivot_point(0.5, 0);
+            this._reflection.set_scale(k, -k);
+            this._reflection.set_position(this._iconActor.x, size * k);
+            this._reflection.opacity = Math.round(255 * REFLECTION_OPACITY * this.presence.value);
+        }
+
+        this._layoutBackdrop(geom, center, crossSize, scale, m);
+        this._layoutBar(geom, center, crossSize, scale, m);
 
         const D = m.dotSize;
         const gap = Math.max(2, Math.round(D * 0.8));
@@ -175,6 +278,206 @@ class DockItem extends St.Button {
         });
     }
 
+    /**
+     * Plate behind the icon and the hover layer. Both cover the item's cell,
+     * or a rounded square around the icon.
+     */
+    _layoutBackdrop(geom, center, crossSize, scale, m) {
+        const cellMain = geom.vertical ? this.height : this.width;
+        const inset = Math.max(2, Math.round(m.pad * 0.3));
+        const cell = geom.rect(crossSize, 1, inset, Math.max(0, cellMain - 2), m.thickness - 2 * inset);
+        const s = m.iconSize * scale * this.presence.value;
+        const grow = Math.round(m.pad * 0.6);
+        const square = geom.rect(crossSize, center - s / 2 - grow, m.pad - grow, s + 2 * grow, s + 2 * grow);
+        const place = (actor, [x, y, w, h]) => {
+            actor.set_position(Math.round(x), Math.round(y));
+            actor.set_size(Math.max(0, Math.round(w)), Math.max(0, Math.round(h)));
+        };
+        const radius = Math.round((s + 2 * grow) * 0.22);
+
+        if (this._plate.visible) {
+            const rounded = this._style.indicator === 'pill';
+            place(this._plate, rounded ? square : cell);
+            this._plate.opacity = Math.round(255 * this.presence.value);
+            if (rounded && radius !== this._plateRadius) {
+                this._plateRadius = radius;
+                this._plate.style = `border-radius: ${radius}px;`;
+            }
+        }
+
+        if (!this._hoverLayer)
+            return;
+        switch (this._style.hover) {
+        case 'rounded':
+            place(this._hoverLayer, square);
+            if (radius !== this._hoverRadius) {
+                this._hoverRadius = radius;
+                this._hoverLayer.style = `border-radius: ${radius}px;`;
+            }
+            break;
+        case 'halo': {
+            const d = s * 2;
+            const crossCenter = m.pad + s / 2;
+            place(this._hoverLayer, geom.rect(crossSize, center - d / 2, crossCenter - d / 2, d, d));
+            break;
+        }
+        default:
+            place(this._hoverLayer, cell);
+        }
+        if (this._glow)
+            this._placeGlow();
+    }
+
+    /** The line or pill under an open app; longer when it is focused. */
+    _layoutBar(geom, center, crossSize, scale, m) {
+        if (!this._bar?.visible)
+            return;
+        const cellMain = geom.vertical ? this.height : this.width;
+        const s = m.iconSize * scale;
+        const f = this._focusAmount.value;
+        let length, thickness, cross;
+        if (this._style.indicator === 'line') {
+            thickness = Math.max(2, Math.round(m.iconSize / 16));
+            length = s * 0.5 + (cellMain - 2 - s * 0.5) * f;
+            cross = 0;
+        } else {
+            thickness = 3;
+            const short = Math.max(6, s * 0.16);
+            length = short + (s * 0.45 - short) * f;
+            cross = Math.max(1, Math.round((m.pad - thickness) / 2));
+        }
+
+        // Several windows: a short extra mark next to the main one. The line
+        // keeps its total length; the pill gets a dot after it.
+        const multi = this._barExtra.visible;
+        const gap = 3;
+        const extra = this._style.indicator === 'line' ? Math.max(4, Math.round(s * 0.12)) : thickness;
+        const total = multi && this._style.indicator === 'pill' ? length + gap + extra : length;
+        const start = center - total / 2;
+        const main = multi && this._style.indicator === 'line' ? length - gap - extra : length;
+        const place = (actor, from, size) => {
+            const [x, y, w, h] = geom.rect(crossSize, from, cross, size, thickness);
+            actor.set_position(Math.round(x), Math.round(y));
+            actor.set_size(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+            actor.opacity = Math.round(255 * this.presence.value);
+        };
+        place(this._bar, start, main);
+        if (multi)
+            place(this._barExtra, start + total - extra, extra);
+    }
+
+    /** Override: icon whose color tints the hover glow, or null. */
+    get tintIcon() {
+        return null;
+    }
+
+    _moveGlow(stageX, stageY) {
+        const [ok, x, y] = this._hoverLayer.transform_stage_point(stageX, stageY);
+        if (!ok)
+            return;
+        this._glowMain = this._dock.geom.vertical ? y : x;
+        this._placeGlow();
+    }
+
+    /** Centers the glow on the pointer, at the bar's screen edge. */
+    _placeGlow() {
+        const geom = this._dock.geom;
+        const layer = this._hoverLayer;
+        const layerMain = geom.vertical ? layer.height : layer.width;
+        const layerCross = geom.vertical ? layer.width : layer.height;
+        const d = Math.round(layerCross * 2.2);
+        const main = this._glowMain ?? layerMain / 2;
+        const [x, y, w, h] = geom.rect(layerCross, main - d / 2, -d / 2, d, d);
+        this._glow.set_position(Math.round(x), Math.round(y));
+        this._glow.set_size(w, h);
+    }
+
+    _fade(actor, opacity, duration = HOVER_FADE_TIME) {
+        actor.remove_all_transitions();
+        if (this._style.instant) {
+            actor.opacity = opacity;
+            return;
+        }
+        this._dock.ease(actor, {opacity, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+    }
+
+    _syncHover() {
+        if (!this._hoverLayer)
+            return;
+        const hover = this.hover && !this._dock.dragging;
+        if (this._style.hover === 'halo') {
+            this._syncHalo();
+            return;
+        }
+        if (hover && this._glow && !this._glowColored) {
+            // Computed on first hover, once per app.
+            this._glowColored = true;
+            const color = this._dock.iconColor(this.tintIcon);
+            if (color)
+                this._glow.style = radialGlow(color, 0.9);
+        }
+        if (!hover)
+            this._glowMain = null;
+        this._fade(this._hoverLayer, hover ? 255 : 0);
+    }
+
+    /** Neon halo: bright on hover, pulsing slowly while the app is focused. */
+    _syncHalo() {
+        const halo = this._hoverLayer;
+        if (this.hover && !this._dock.dragging) {
+            this._fade(halo, 255);
+        } else if (this._focused && this._dock.canAnimate) {
+            halo.remove_all_transitions();
+            this._dock.ease(halo, {
+                opacity: 200,
+                duration: HOVER_FADE_TIME,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onComplete: () => {
+                    this._dock.ease(halo, {
+                        opacity: 70,
+                        duration: HALO_PULSE_TIME,
+                        mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
+                        autoReverse: true,
+                        repeatCount: -1,
+                    });
+                },
+            });
+        } else {
+            this._fade(halo, this._focused ? 160 : 0);
+        }
+    }
+
+    _onPressed() {
+        this._press.remove_transition('value');
+        if (this.pressed) {
+            this._dock.easeValue(this._press, 1, {duration: 90, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        } else {
+            this._dock.easeValue(this._press, 0, {
+                duration: 320,
+                mode: Clutter.AnimationMode.EASE_OUT_BACK,
+            });
+        }
+    }
+
+    /** Which part marks an open app: the plate, the bar or the dots. */
+    _syncIndicator() {
+        const running = this._dotCount > 0;
+        switch (this._style.indicator) {
+        case 'plate':
+        case 'bevel':
+            this._plate.visible = running;
+            break;
+        case 'line':
+        case 'pill':
+            this._plate.visible = running && this._focused;
+            this._bar.visible = running;
+            this._barExtra.visible = this._dotCount > 1;
+            break;
+        }
+        setClass(this._plate, 'glass-dock-plate-multi', this._dotCount > 1);
+        this._dock.queueRelayout();
+    }
+
     /** Shows `count` indicator dots (0 hides them). */
     setDotCount(count) {
         if (!this._dock.settings.get_boolean('show-running-indicators'))
@@ -185,17 +488,32 @@ class DockItem extends St.Button {
         });
         if (count !== this._dotCount) {
             this._dotCount = count;
-            this._dock.queueRelayout();
+            this._syncIndicator();
         }
     }
 
     setDotsActive(active) {
-        for (const dot of this._dots) {
-            if (active)
-                dot.add_style_class_name('glass-dock-dot-active');
-            else
-                dot.remove_style_class_name('glass-dock-dot-active');
+        for (const dot of this._dots)
+            setClass(dot, 'glass-dock-dot-active', active);
+        for (const actor of [this._plate, this._bar, this._barExtra].filter(Boolean))
+            setClass(actor, 'glass-dock-focused', active);
+        if (active === this._focused)
+            return;
+        this._focused = active;
+        this._syncIndicator();
+        if (this._focusAmount) {
+            this._focusAmount.remove_transition('value');
+            if (this._style.instant) {
+                this._focusAmount.value = active ? 1 : 0;
+            } else {
+                this._dock.easeValue(this._focusAmount, active ? 1 : 0, {
+                    duration: INDICATOR_TIME,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
+            }
         }
+        if (this._style.hover === 'halo')
+            this._syncHalo();
     }
 
     setRunning(running) {
@@ -344,6 +662,10 @@ class DockAppIcon extends DockItem {
 
     get labelText() {
         return this.app.get_name();
+    }
+
+    get tintIcon() {
+        return this.app.get_icon();
     }
 
     /** This app's windows, including ones GNOME did not match to it. */
@@ -569,24 +891,137 @@ class DockAppsButton extends DockItem {
     _init(dock) {
         super._init(dock);
         this.itemKey = 'apps-button';
+        // The orb and the labeled button have a fixed shape.
+        if (this._mode === 'orb' || this._mode === 'labeled')
+            this.magnifiable = false;
+        this._shapeKey = '';
+    }
+
+    /** 'tile', 'square', 'orb' or 'labeled' (horizontal docks only). */
+    get _mode() {
+        const mode = this._dock.style.appsButton;
+        return mode === 'labeled' && this._dock.geom.vertical ? 'square' : mode;
     }
 
     createIconActor(size) {
+        const mode = this._mode;
         this._tileIcon = new St.Icon({
             icon_name: 'view-app-grid-symbolic',
-            icon_size: Math.round(size * 0.52),
+            icon_size: Math.round(size * (mode === 'square' ? 0.62 : 0.52)),
             style_class: 'glass-dock-apps-tile-icon',
         });
-        return new St.Bin({
-            style_class: 'glass-dock-apps-tile',
-            style: `border-radius: ${Math.round(size * 0.24)}px;`,
-            child: this._tileIcon,
-        });
+        switch (mode) {
+        case 'square':
+            return new St.Bin({style_class: 'glass-dock-apps-plain', child: this._tileIcon});
+        case 'orb':
+            return new St.Bin({style_class: 'glass-dock-apps-tile glass-dock-apps-orb', child: this._tileIcon});
+        case 'labeled': {
+            this._label = new St.Label({text: _('Apps'), y_align: Clutter.ActorAlign.CENTER});
+            this._label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+            const box = new St.BoxLayout({
+                style_class: 'glass-dock-apps-tile glass-dock-apps-labeled',
+                x_expand: true,
+                y_expand: true,
+                x_align: Clutter.ActorAlign.FILL,
+                y_align: Clutter.ActorAlign.FILL,
+            });
+            // Its width depends on the font, known once the style applies.
+            box.connect('style-changed', () => this._dock.queueRelayout());
+            this._tileIcon.y_align = Clutter.ActorAlign.CENTER;
+            box.add_child(this._tileIcon);
+            box.add_child(this._label);
+            // The dock sizes the holder; the box inside is only measured, so
+            // its natural width never picks up the size set on the holder.
+            this._labeledBox = box;
+            return new St.Bin({child: box});
+        }
+        default:
+            return new St.Bin({
+                style_class: 'glass-dock-apps-tile',
+                style: `border-radius: ${Math.round(size * 0.24)}px;`,
+                child: this._tileIcon,
+            });
+        }
     }
 
     renderIconAt(size) {
-        this._iconActor.style = `border-radius: ${Math.round(size * 0.24)}px;`;
-        this._tileIcon.icon_size = Math.round(size * 0.52);
+        switch (this._mode) {
+        case 'square':
+            this._tileIcon.icon_size = Math.round(size * 0.62);
+            break;
+        case 'tile':
+            this._iconActor.style = `border-radius: ${Math.round(size * 0.24)}px;`;
+            this._tileIcon.icon_size = Math.round(size * 0.52);
+            break;
+        }
+    }
+
+    _orbSize(m) {
+        return Math.round(m.thickness * 1.12);
+    }
+
+    /** Sizes the orb or the labeled button for these metrics. */
+    _shape(m) {
+        const key = `${m.iconSize}/${m.thickness}`;
+        if (key === this._shapeKey)
+            return;
+        this._shapeKey = key;
+        if (this._mode === 'orb') {
+            const d = this._orbSize(m);
+            this._iconActor.style = `border-radius: ${Math.ceil(d / 2)}px;`;
+            this._tileIcon.icon_size = Math.round(d * 0.5);
+        } else {
+            const h = m.thickness - 2 * Math.max(2, Math.round(m.pad * 0.3));
+            const radius = this._dock.style.indicator === 'bevel' ? 0 : Math.round(h * 0.3);
+            this._labeledBox.style = `border-radius: ${radius}px;` +
+                `padding: 0 ${Math.round(m.iconSize * 0.4)}px;` +
+                `spacing: ${Math.round(m.iconSize * 0.2)}px;` +
+                `font-size: ${Math.round(m.iconSize * 0.42)}px;`;
+            this._tileIcon.icon_size = Math.round(m.iconSize * 0.62);
+        }
+    }
+
+    /** Natural width of the labeled button. */
+    _labeledWidth(m) {
+        this._shape(m);
+        return Math.ceil(this._labeledBox.get_preferred_width(-1)[1]);
+    }
+
+    getBaseMainSize(m) {
+        switch (this._mode) {
+        case 'orb':
+            return this._orbSize(m) + m.spacing;
+        case 'labeled':
+            return this._labeledWidth(m) + m.spacing;
+        default:
+            return super.getBaseMainSize(m);
+        }
+    }
+
+    applyLayout(geom, center, crossSize, scale, m, snap) {
+        const mode = this._mode;
+        if (mode !== 'orb' && mode !== 'labeled') {
+            super.applyLayout(geom, center, crossSize, scale, m, snap);
+            return;
+        }
+        this._shape(m);
+        let rect;
+        if (mode === 'orb') {
+            // Sits on the screen edge and rises above the bar.
+            const d = this._orbSize(m);
+            rect = geom.rect(crossSize, center - d / 2, 1, d, d);
+        } else {
+            const inset = Math.max(2, Math.round(m.pad * 0.3));
+            const width = this._labeledWidth(m);
+            rect = geom.rect(crossSize, center - width / 2, inset, width, m.thickness - 2 * inset);
+        }
+        const [x, y, w, h] = rect;
+        this._iconActor.set_position(Math.round(x), Math.round(y));
+        this._iconActor.set_size(Math.round(w), Math.round(h));
+        this._iconActor.set_pivot_point(0.5, 0.5);
+        this._iconActor.set_scale(this.presence.value, this.presence.value);
+        this._iconActor.opacity = Math.round(255 * this.presence.value);
+        this._hoverLayer?.hide();
     }
 
     get labelText() {
