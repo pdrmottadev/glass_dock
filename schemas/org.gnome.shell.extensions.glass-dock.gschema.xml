@@ -32,6 +32,18 @@
       <default>''</default>
       <summary>Monitor connector (e.g. DP-1); empty for the primary monitor</summary>
     </key>
+    <key name="multi-monitor" type="b">
+      <default>false</default>
+      <summary>Show a dock on every monitor</summary>
+    </key>
+    <key name="isolate-monitors" type="b">
+      <default>true</default>
+      <summary>With a dock on every monitor, each shows the windows on its monitor</summary>
+    </key>
+    <key name="isolate-workspaces" type="b">
+      <default>false</default>
+      <summary>Show only the windows on the current workspace</summary>
+    </key>
     <key name="icon-size" type="i">
       <range min="32" max="96"/>
       <default>52</default>
@@ -81,6 +93,15 @@
       <default>true</default>
       <summary>Blur what is behind the dock</summary>
     </key>
+    <key name="liquid-glass" type="b">
+      <default>false</default>
+      <summary>Liquid glass: bend what is behind the dock near its edges (experimental)</summary>
+    </key>
+    <key name="liquid-glass-strength" type="i">
+      <range min="0" max="100"/>
+      <default>60</default>
+      <summary>How strongly liquid glass bends the background, from 0 to 100</summary>
+    </key>
     <key name="show-running-indicators" type="b">
       <default>true</default>
       <summary>Show running indicators</summary>
@@ -129,6 +150,28 @@
       <summary>Show the Applications button</summary>
     </key>
 
+    <key name="hover-previews" type="b">
+      <default>false</default>
+      <summary>Show live window previews when the pointer rests on an app</summary>
+    </key>
+    <key name="hover-delay" type="i">
+      <range min="0" max="2000"/>
+      <default>500</default>
+      <summary>Time the pointer rests on an app before its hover popup opens, in milliseconds</summary>
+    </key>
+    <key name="media-controls" type="b">
+      <default>true</default>
+      <summary>Show a mini player when the pointer rests on a media player</summary>
+    </key>
+    <key name="show-badges" type="b">
+      <default>true</default>
+      <summary>Show counters published by apps on their icons</summary>
+    </key>
+    <key name="show-progress" type="b">
+      <default>true</default>
+      <summary>Show progress published by apps on their icons</summary>
+    </key>
+
     <!-- Right section -->
     <key name="show-recent-apps" type="b">
       <default>true</default>
@@ -154,6 +197,14 @@
       </choices>
       <default>'fan'</default>
       <summary>Downloads stack view</summary>
+    </key>
+    <key name="extra-stacks" type="as">
+      <default>[]</default>
+      <summary>Folders shown as stacks next to Downloads (URIs)</summary>
+    </key>
+    <key name="stack-preview-icon" type="b">
+      <default>true</default>
+      <summary>Show the newest file on a stack's icon</summary>
     </key>
     <key name="show-trash" type="b">
       <default>true</default>

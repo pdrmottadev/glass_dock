@@ -39,10 +39,10 @@ const BASE = {
     // Glass shelf in perspective with icon reflections (bottom edge only).
     shelf: false,
     // Values the preferences apply when the style is picked.
-    preset: {'icon-size': 52, 'magnification-enabled': true},
+    preset: {'icon-size': 52, 'magnification-enabled': true, 'hover-previews': false},
 };
 
-const PANEL_PRESET = {'icon-size': 32, 'magnification-enabled': false};
+const PANEL_PRESET = {'icon-size': 32, 'magnification-enabled': false, 'hover-previews': true};
 
 export const STYLES = [
     {
@@ -87,7 +87,7 @@ export const STYLES = [
         indicator: 'plate',
         appsButton: 'orb',
         hover: 'tint',
-        preset: {'icon-size': 40, 'magnification-enabled': false},
+        preset: {'icon-size': 40, 'magnification-enabled': false, 'hover-previews': true},
     },
     {
         id: 'line',
@@ -151,7 +151,7 @@ export const STYLES = [
         radiusFactor: 0.3,
         appsAtEnd: true,
         hover: 'rounded',
-        preset: {'icon-size': 48, 'magnification-enabled': false},
+        preset: {'icon-size': 48, 'magnification-enabled': false, 'hover-previews': false},
     },
 ].map(style => Object.freeze({...BASE, ...style}));
 

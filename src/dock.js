@@ -8,6 +8,7 @@
 // The dock itself: actors, layout, magnification, tooltips and DnD.
 import Cairo from 'cairo';
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Mtk from 'gi://Mtk';
@@ -21,8 +22,10 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {AutoHide} from './autohide.js';
 import {DockAppIcon, DockAppsButton, DockSeparator} from './dockItem.js';
 import {AppExpose} from './expose.js';
+import {HoverPopup} from './hoverPopup.js';
+import {LIQUID_GLASS_SUPPORTED, LiquidGlass} from './liquidGlass.js';
 import {computeLayout, stepSpring} from './magnifier.js';
-import {DownloadsStack} from './stacks.js';
+import {FolderStack, downloadsDir} from './stacks.js';
 import {styleFor} from './styles.js';
 import {TrashItem} from './trash.js';
 import {EdgeGeometry, getAppFromSource, iconColor} from './utils.js';
@@ -51,14 +54,21 @@ function resolveMonitorIndex(connector) {
 }
 
 export class Dock {
-    constructor(settings, model, {dark, interfaceSettings}) {
+    constructor(settings, model, {dark, interfaceSettings, launcher, media, monitorIndex = null}) {
         this.settings = settings;
         this._interfaceSettings = interfaceSettings;
         this._model = model;
         this._dark = dark;
+        this.launcher = launcher;
+        this.media = media;
+        this._hoverFrozen = false; // zoom held while the pointer is on the hover popup
         this.style = styleFor(settings.get_string('dock-style'));
 
-        this.monitorIndex = resolveMonitorIndex(settings.get_string('monitor-connector'));
+        this.monitorIndex = monitorIndex ?? resolveMonitorIndex(settings.get_string('monitor-connector'));
+        // With a dock on every monitor, each can stick to its own windows.
+        this.multiMonitor = monitorIndex !== null;
+        this._isolateMonitor = this.multiMonitor && settings.get_boolean('isolate-monitors');
+        this._isolateWorkspace = settings.get_boolean('isolate-workspaces');
         this.monitor = Main.layoutManager.monitors[this.monitorIndex];
         this.geom = new EdgeGeometry(settings.get_string('position'));
         this.metrics = this._computeMetrics(settings.get_int('icon-size'));
@@ -82,6 +92,7 @@ export class Dock {
         this._iconColors = new Map();
 
         this._buildActors();
+        this._hoverPopup = new HoverPopup(this);
 
         this._readMotionSettings();
         this.settings.connectObject(
@@ -100,6 +111,19 @@ export class Dock {
             'window-demands-attention', (d, w) => this._onUrgent(w),
             'window-marked-urgent', (d, w) => this._onUrgent(w),
             this);
+        // Windows moving between monitors change which dock owns them.
+        if (this.isolating || this.multiMonitor) {
+            global.display.connectObject(
+                'window-entered-monitor', () => this._queueWindowsMoved(),
+                'window-left-monitor', () => this._queueWindowsMoved(),
+                this);
+            global.workspace_manager.connectObject(
+                'active-workspace-changed', () => this._queueWindowsMoved(),
+                'workspace-added', () => this._watchWorkspaces(),
+                'workspace-removed', () => this._watchWorkspaces(),
+                this);
+            this._watchWorkspaces();
+        }
 
         this._dragMonitor = {dragMotion: this._onDragMotion.bind(this)};
         DND.addDragMonitor(this._dragMonitor);
@@ -178,7 +202,15 @@ export class Dock {
         // Blurred backdrop, inset a bit so its square corners stay hidden
         // behind the rounded glass.
         this._blur = new St.Widget({style_class: 'glass-dock-blur'});
-        if (this.settings.get_boolean('blur-enabled')) {
+        if (this._wantsLiquidGlass()) {
+            const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+            this._liquid = new LiquidGlass({
+                blurRadius: Math.round(8 * scale),
+                strength: this.settings.get_int('liquid-glass-strength') / 100,
+                dark: this._dark,
+            });
+            this._blur.hide();
+        } else if (this.settings.get_boolean('blur-enabled')) {
             const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
             this._blur.add_effect_with_name('blur', new Shell.BlurEffect({
                 mode: Shell.BlurMode.BACKGROUND,
@@ -189,6 +221,12 @@ export class Dock {
             this._blur.hide();
         }
         this._actor.add_child(this._blur);
+        if (this._liquid) {
+            this._actor.add_child(this._liquid.actor);
+            // The cloned windows must stay lined up while the dock slides.
+            this._actor.connect('notify::translation-x', () => this._liquid.syncClone(this._stageOrigin()));
+            this._actor.connect('notify::translation-y', () => this._liquid.syncClone(this._stageOrigin()));
+        }
 
         if (this.shelfActive) {
             // The shelf is a trapezoid, which CSS cannot draw.
@@ -216,6 +254,7 @@ export class Dock {
         this._motion.connect('new-frame', () => this._stepMotion());
 
         this._actor.connect('motion-event', (actor, event) => {
+            this._liquid?.setPointer(event.get_coords());
             if (this._magFrozen)
                 return Clutter.EVENT_PROPAGATE;
             this._pointer = event.get_coords();
@@ -223,7 +262,11 @@ export class Dock {
                 this._aimFocus();
             return Clutter.EVENT_PROPAGATE;
         });
-        this._actor.connect('notify::hover', () => this._onHoverChanged());
+        this._actor.connect('notify::hover', () => {
+            if (!this._actor.hover)
+                this._liquid?.setPointer(null);
+            this._onHoverChanged();
+        });
 
         // Reserve screen space when the dock never hides.
         if (this.settings.get_string('autohide-mode') === 'never') {
@@ -286,6 +329,23 @@ export class Dock {
             this._background.style = this._backgroundStyle();
         this._updateStruts();
         this._iconGeometryKey = '';
+    }
+
+    /**
+     * Liquid glass needs the GPU and a GNOME version that can run custom
+     * shaders. The shelf keeps its own drawing.
+     */
+    _wantsLiquidGlass() {
+        return this.settings.get_boolean('liquid-glass') && this.settings.get_boolean('blur-enabled') &&
+            LIQUID_GLASS_SUPPORTED && global.backend.is_rendering_hardware_accelerated() && !this.shelfActive;
+    }
+
+    /** Stage position of the dock actor (the parent of the glass). */
+    _stageOrigin() {
+        return [
+            this.monitor.x + this._actor.x + this._actor.translation_x,
+            this.monitor.y + this._actor.y + this._actor.translation_y,
+        ];
     }
 
     get styleClass() {
@@ -375,7 +435,7 @@ export class Dock {
 
         for (const app of this._model.getPinned())
             list.push({key: `app:${app.get_id()}`, create: () => new DockAppIcon(this, app)});
-        for (const app of this._model.getRunningUnpinned())
+        for (const app of this._model.getRunningUnpinned().filter(a => this._showsRunningApp(a)))
             list.push({key: `app:${app.get_id()}`, create: () => new DockAppIcon(this, app)});
         if (showApps && this.style.appsAtEnd)
             list.push(appsButton);
@@ -389,10 +449,15 @@ export class Dock {
 
         const showDownloads = s.get_boolean('show-downloads');
         const showTrash = s.get_boolean('show-trash');
-        if (showDownloads || showTrash) {
+        const extraStacks = [...new Set(s.get_strv('extra-stacks'))];
+        if (showDownloads || showTrash || extraStacks.length) {
             list.push({key: 'sep:places', create: () => new DockSeparator(this, 'sep:places')});
             if (showDownloads)
-                list.push({key: 'downloads', create: () => new DownloadsStack(this)});
+                list.push({key: 'downloads', create: () => new FolderStack(this, downloadsDir(), 'downloads')});
+            for (const uri of extraStacks) {
+                const key = `stack:${uri}`;
+                list.push({key, create: () => new FolderStack(this, Gio.File.new_for_uri(uri), key)});
+            }
             if (showTrash)
                 list.push({key: 'trash', create: () => new TrashItem(this)});
         }
@@ -553,7 +618,9 @@ export class Dock {
         this._background.set_position(bx, by);
         this._background.set_size(bw, bh);
 
-        if (this.shelfActive) {
+        if (this._liquid) {
+            this._liquid.update(bx, by, bw, bh, m.radius, this._stageOrigin());
+        } else if (this.shelfActive) {
             const {slab, slant} = this._shelfShape(bh);
             this._blur.set_position(bx + slant, by + bh - slab);
             this._blur.set_size(Math.max(0, bw - 2 * slant), slab);
@@ -584,6 +651,7 @@ export class Dock {
 
         if (this._tooltipItem)
             this._positionTooltip();
+        this._hoverPopup?.reposition();
 
         if (amount === 0 && !this.dragging)
             this._updateIconGeometries();
@@ -648,6 +716,69 @@ export class Dock {
         return this._dark;
     }
 
+    // ---- Which windows this dock shows -------------------------------------
+
+    /** Whether this dock shows only some windows (its monitor or workspace). */
+    get isolating() {
+        return this._isolateMonitor || this._isolateWorkspace;
+    }
+
+    /** Whether a window counts on this dock. */
+    windowFilter(window) {
+        if (this._isolateMonitor && window.get_monitor() !== this.monitorIndex)
+            return false;
+        if (this._isolateWorkspace && !window.is_on_all_workspaces() &&
+            window.get_workspace() !== global.workspace_manager.get_active_workspace())
+            return false;
+        return true;
+    }
+
+    /**
+     * Whether this dock owns a window's minimize target. With a dock on
+     * every monitor, the one on the window's monitor does.
+     */
+    ownsWindow(window) {
+        return !this.multiMonitor || window.get_monitor() === this.monitorIndex;
+    }
+
+    /** Whether a running app has windows on this dock. */
+    _showsRunningApp(app) {
+        return !this.isolating || this._model.windowsFor(app).some(w => this.windowFilter(w));
+    }
+
+    _watchWorkspaces() {
+        const manager = global.workspace_manager;
+        for (const workspace of this._watchedWorkspaces ?? [])
+            workspace.disconnectObject(this);
+        this._watchedWorkspaces = [];
+        if (!this._isolateWorkspace)
+            return;
+        for (let i = 0; i < manager.get_n_workspaces(); i++) {
+            const workspace = manager.get_workspace_by_index(i);
+            workspace.connectObject(
+                'window-added', () => this._queueWindowsMoved(),
+                'window-removed', () => this._queueWindowsMoved(),
+                this);
+            this._watchedWorkspaces.push(workspace);
+        }
+    }
+
+    /** Windows changed monitor or workspace: refresh items and indicators. */
+    _queueWindowsMoved() {
+        if (this._windowsMovedId)
+            return;
+        const laters = global.compositor.get_laters();
+        this._windowsMovedId = laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._windowsMovedId = 0;
+            if (this._destroyed)
+                return GLib.SOURCE_REMOVE;
+            this._rebuildItems(true);
+            for (const item of this._items)
+                item.refreshWindows?.();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     /** The accent color from GNOME Settings, as [r, g, b]. */
     get accentColor() {
         if (!this._accentColor) {
@@ -682,10 +813,52 @@ export class Dock {
     }
 
     get requiresVisibility() {
-        return this.dragging || this._menuOpenCount > 0 || this._popupOpen;
+        return this.dragging || this._menuOpenCount > 0 || this._popupOpen || !!this._hoverPopup?.isOpen;
+    }
+
+    /** Whether a menu or a click popup is open (or about to). */
+    get menuOrOverlayOpen() {
+        return this._menuOpenCount > 0 || this._menuPending || this._popupOpen;
+    }
+
+    // ---- Hover popup -------------------------------------------------------
+
+    addHoverPopupActor(actor) {
+        this._outer.add_child(actor);
+    }
+
+    onHoverPopupOpened() {
+        this.hideTooltip();
+        this._autohide?.update();
+    }
+
+    onHoverPopupClosed() {
+        if (this._hoverFrozen) {
+            this._hoverFrozen = false;
+            this._onHoverChanged(this._thawMagnification());
+        }
+        this._autohide?.update();
+    }
+
+    closeHoverPopup() {
+        this._hoverPopup?.close(true);
     }
 
     _onHoverChanged(hovered = this._actor.hover) {
+        if (this._hoverFrozen) {
+            if (!hovered)
+                return;
+            // Back on the dock from the hover popup: follow the pointer again.
+            this._hoverFrozen = false;
+            this._magFrozen = false;
+        } else if (!hovered && this._hoverPopup?.isOpen && !this._magFrozen) {
+            // Probably heading for the hover popup: hold the zoom so the
+            // popup stays put. It closes on its own if the pointer goes elsewhere.
+            this._hoverFrozen = true;
+            this._magFrozen = this.metrics.magEnabled;
+            this.hideTooltip();
+            return;
+        }
         // The popup's grab takes the hover away; the zoom stays until it closes.
         if (this._magFrozen)
             return;
@@ -823,7 +996,9 @@ export class Dock {
     // ---- Tooltip ---------------------------------------------------------
 
     onItemHover(item, hover) {
-        if (hover && !this.dragging && this._menuOpenCount === 0 && !this._popupOpen && item.labelText) {
+        this._hoverPopup?.onItemHover(item, hover);
+        if (hover && !this.dragging && this._menuOpenCount === 0 && !this._popupOpen &&
+            !this._hoverPopup?.isOpen && item.labelText) {
             this._tooltipItem = item;
             this._tooltip.text = item.labelText;
             this._tooltip.show();
@@ -880,6 +1055,7 @@ export class Dock {
 
     /** Collapses magnification right before a menu opens so it anchors to the bar. */
     prepareMenu() {
+        this.closeHoverPopup();
         this._menuPending = true;
         this.hideTooltip();
         this._resetMagnification();
@@ -931,6 +1107,7 @@ export class Dock {
      *   the overlay is open; otherwise collapse it
      */
     prepareOverlay({keepMagnification = false} = {}) {
+        this.closeHoverPopup();
         this.hideTooltip();
         this._popupOpen = true;
         this._magFrozen = keepMagnification && this.metrics.magEnabled && this._actor.hover;
@@ -1015,6 +1192,8 @@ export class Dock {
         const app = Shell.WindowTracker.get_default().get_window_app(window);
         if (!app)
             return;
+        if (!this.ownsWindow(window))
+            return;
         const item = this._itemMap.get(`app:${this._model.resolve(app).get_id()}`);
         item?.bounce(3, () => window.has_focus());
     }
@@ -1022,6 +1201,7 @@ export class Dock {
     // ---- Drag and drop ---------------------------------------------------
 
     onItemDragBegin(item) {
+        this.closeHoverPopup();
         this.dragging = true;
         this._draggedItem = item;
         this.hideTooltip();
@@ -1198,12 +1378,18 @@ export class Dock {
         this._destroyed = true;
         this._motion.stop();
         const laters = global.compositor.get_laters();
-        for (const id of [this._relayoutId, this._dropLaterId]) {
+        for (const id of [this._relayoutId, this._dropLaterId, this._windowsMovedId]) {
             if (id)
                 laters.remove(id);
         }
-        this._relayoutId = this._dropLaterId = 0;
+        this._relayoutId = this._dropLaterId = this._windowsMovedId = 0;
+        global.workspace_manager.disconnectObject(this);
+        for (const workspace of this._watchedWorkspaces ?? [])
+            workspace.disconnectObject(this);
+        this._watchedWorkspaces = [];
         DND.removeDragMonitor(this._dragMonitor);
+        this._hoverPopup.destroy();
+        this._hoverPopup = null;
         this._autohide?.destroy();
         this._autohide = null;
         this.settings.disconnectObject(this);

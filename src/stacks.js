@@ -5,8 +5,9 @@
 // Do NOT upload to extensions.gnome.org (EGO) unless you understand JavaScript
 // and can maintain this code.
 
-// Downloads stack: a dock item that pops up the most recent files as a
-// fan (arc going up from the dock) or a grid panel.
+// Folder stacks (Downloads and any folder the user adds): a dock item that
+// pops up the most recent files as a fan (arc going up from the dock) or a
+// grid panel. The icon shows the newest file on top of the folder.
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -37,6 +38,54 @@ const FAN_MAX_ITEMS = 10;
 const FAN_TOP_MARGIN = 48; // keeps the fan clear of the top panel
 const GRID_MAX_ITEMS = 40;
 const GRID_COLUMNS = 5;
+const REFRESH_DELAY_MS = 400;
+// Files being downloaded (Firefox, Chromium, Epiphany, others).
+const PARTIAL_SUFFIXES = ['.part', '.crdownload', '.download', '.partial'];
+
+/** Whether a file is still being downloaded. */
+function isPartial(info) {
+    const name = info.get_name();
+    return PARTIAL_SUFFIXES.some(suffix => name.endsWith(suffix));
+}
+
+/** Text for a file in the fan or the grid. */
+function entryLabel(info) {
+    if (!isPartial(info))
+        return info.get_display_name();
+    const name = info.get_display_name().replace(/\.[^.]+$/, '');
+    return _('Downloading %s…').format(name);
+}
+
+/**
+ * Files in a folder, newest first, without hidden files and without the
+ * empty placeholder some browsers create next to a partial download.
+ */
+async function listFiles(dir, cancellable) {
+    const infos = [];
+    let enumerator;
+    try {
+        enumerator = await dir.enumerate_children_async(FILE_ATTRS,
+            Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable);
+        for (;;) {
+            const batch = await enumerator.next_files_async(100, GLib.PRIORITY_DEFAULT, cancellable);
+            if (batch.length === 0)
+                break;
+            infos.push(...batch);
+        }
+        await enumerator.close_async(GLib.PRIORITY_DEFAULT, null);
+    } catch (e) {
+        if (!isCancelled(e))
+            console.warn(`Glass Dock: cannot list ${dir.get_path()}: ${e.message}`);
+        return [];
+    }
+
+    const partial = new Set(infos.filter(isPartial).map(i => i.get_name().replace(/\.[^.]+$/, '')));
+    const mtime = info => info.get_modification_date_time()?.to_unix() ?? 0;
+    return infos
+        .filter(i => !i.get_is_hidden() && !i.get_is_backup())
+        .filter(i => isPartial(i) || !partial.has(i.get_name()))
+        .sort((a, b) => mtime(b) - mtime(a));
+}
 
 function fileIcon(info) {
     const thumb = info.get_attribute_byte_string('thumbnail::path');
@@ -45,13 +94,13 @@ function fileIcon(info) {
     return info.get_icon() ?? Gio.ThemedIcon.new('text-x-generic');
 }
 
-function downloadsDir() {
+export function downloadsDir() {
     const path = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD) ??
         GLib.build_filenamev([GLib.get_home_dir(), 'Downloads']);
     return Gio.File.new_for_path(path);
 }
 
-/** The Downloads stack contents, shown inside a ModalLayer. */
+/** A stack's contents, shown inside a ModalLayer. */
 class StackPopup {
     constructor(item, dir, files, mode) {
         this._item = item;
@@ -113,7 +162,7 @@ class StackPopup {
         const room = Math.floor((this._anchor.top - 12 - FAN_TOP_MARGIN) / step) - 1;
         const files = this._files.slice(0, Math.max(1, Math.min(FAN_MAX_ITEMS, room)));
         const entries = files.map(info =>
-            this._fanEntry(info.get_display_name(), fileIcon(info), () => this._openFile(info), iconSize));
+            this._fanEntry(entryLabel(info), fileIcon(info), () => this._openFile(info), iconSize));
         entries.push(this._fanEntry(_('Open in Files'),
             Gio.ThemedIcon.new('folder-open'), () => this._openFolder(), 32));
 
@@ -171,7 +220,7 @@ class StackPopup {
             const cell = new St.Button({style_class: 'glass-dock-grid-cell', reactive: true});
             const box = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL});
             box.add_child(new St.Icon({gicon: fileIcon(info), icon_size: 56, x_align: Clutter.ActorAlign.CENTER}));
-            const label = new St.Label({style_class: 'glass-dock-grid-label', text: info.get_display_name()});
+            const label = new St.Label({style_class: 'glass-dock-grid-label', text: entryLabel(info)});
             label.clutter_text.ellipsize = Pango.EllipsizeMode.MIDDLE;
             box.add_child(label);
             cell.set_child(box);
@@ -234,23 +283,103 @@ class StackPopup {
     }
 }
 
-export const DownloadsStack = GObject.registerClass(
-class DownloadsStack extends DockItem {
-    _init(dock) {
-        this._dir = downloadsDir(); // before super._init(): labelText needs it
+/**
+ * A folder in the dock. Downloads is one; the user can add others.
+ *
+ * @param {Dock} dock
+ * @param {Gio.File} dir
+ * @param {string} key item key ('downloads' or 'stack:<uri>')
+ */
+export const FolderStack = GObject.registerClass(
+class FolderStack extends DockItem {
+    _init(dock, dir, key) {
+        // Before super._init(): labelText and the icon need them.
+        this._dir = dir;
+        this._stackKey = key;
         super._init(dock);
-        this.itemKey = 'downloads';
+        this.itemKey = key;
         this._popup = null;
         this._cancellable = null;
+        this._refreshId = 0;
         this.setRunning(false);
+
+        this._iconCancellable = new Gio.Cancellable();
+        if (key !== 'downloads')
+            this._loadFolderIcon().catch(logError);
+
+        if (dock.settings.get_boolean('stack-preview-icon')) {
+            try {
+                this._monitor = this._dir.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
+                this._monitor.connect('changed', () => this._queueRefresh());
+            } catch (e) {
+                console.warn(`Glass Dock: cannot watch ${this._dir.get_path()}: ${e.message}`);
+            }
+            this._refreshNewest().catch(logError);
+        }
     }
 
     createIconActor(size) {
-        return new St.Icon({icon_name: 'folder-download', icon_size: size, style_class: 'glass-dock-icon'});
+        this._folderIcon = new St.Icon({
+            icon_name: this._stackKey === 'downloads' ? 'folder-download' : 'folder',
+            icon_size: size,
+            style_class: 'glass-dock-icon',
+        });
+        // The newest file, small, on the folder's lower corner.
+        this._newestIcon = new St.Icon({
+            icon_size: Math.round(size * 0.55),
+            style_class: 'glass-dock-stack-newest',
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.END,
+            x_expand: true,
+            y_expand: true,
+            visible: false,
+        });
+        const holder = new St.Widget({layout_manager: new Clutter.BinLayout()});
+        holder.add_child(this._folderIcon);
+        holder.add_child(this._newestIcon);
+        return holder;
+    }
+
+    /** The folder's own icon (Documents, Music, …), as Files shows it. */
+    async _loadFolderIcon() {
+        try {
+            const info = await this._dir.query_info_async('standard::icon', Gio.FileQueryInfoFlags.NONE,
+                GLib.PRIORITY_DEFAULT, this._iconCancellable);
+            if (info.get_icon())
+                this._folderIcon.gicon = info.get_icon();
+        } catch (e) {
+            if (!isCancelled(e))
+                console.warn(`Glass Dock: cannot read ${this._dir.get_path()}: ${e.message}`);
+        }
+    }
+
+    renderIconAt(size) {
+        this._folderIcon.icon_size = size;
+        this._newestIcon.icon_size = Math.round(size * 0.55);
     }
 
     get labelText() {
         return this._dir.get_basename();
+    }
+
+    _queueRefresh() {
+        if (this._refreshId)
+            GLib.source_remove(this._refreshId);
+        this._refreshId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, REFRESH_DELAY_MS, () => {
+            this._refreshId = 0;
+            this._refreshNewest().catch(logError);
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    async _refreshNewest() {
+        const files = await listFiles(this._dir, this._iconCancellable);
+        if (this._destroyed)
+            return;
+        const newest = files.find(info => !isPartial(info));
+        this._newestIcon.visible = !!newest;
+        if (newest)
+            this._newestIcon.gicon = fileIcon(newest);
     }
 
     createMenu() {
@@ -283,37 +412,12 @@ class DownloadsStack extends DockItem {
         const cancellable = new Gio.Cancellable();
         this._cancellable = cancellable;
 
-        const files = await this._listFiles(cancellable);
+        const files = await listFiles(this._dir, cancellable);
         if (cancellable.is_cancelled() || this._destroyed || (this._popup && !this._popup.closed))
             return;
         this._dock.prepareOverlay({keepMagnification: true});
         this._popup = new StackPopup(this, this._dir, files,
             this._dock.settings.get_string('downloads-view'));
-    }
-
-    async _listFiles(cancellable) {
-        const infos = [];
-        let enumerator;
-        try {
-            enumerator = await this._dir.enumerate_children_async(FILE_ATTRS,
-                Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable);
-            for (;;) {
-                const batch = await enumerator.next_files_async(100, GLib.PRIORITY_DEFAULT, cancellable);
-                if (batch.length === 0)
-                    break;
-                infos.push(...batch);
-            }
-            await enumerator.close_async(GLib.PRIORITY_DEFAULT, null);
-        } catch (e) {
-            if (!isCancelled(e))
-                console.warn(`Glass Dock: cannot list ${this._dir.get_path()}: ${e.message}`);
-            return [];
-        }
-
-        const mtime = info => info.get_modification_date_time()?.to_unix() ?? 0;
-        return infos
-            .filter(i => !i.get_is_hidden() && !i.get_is_backup())
-            .sort((a, b) => mtime(b) - mtime(a));
     }
 
     onPopupClosed(popup) {
@@ -323,6 +427,10 @@ class DownloadsStack extends DockItem {
 
     _onDestroy() {
         this._cancellable?.cancel();
+        this._iconCancellable.cancel();
+        this._monitor?.cancel();
+        if (this._refreshId)
+            GLib.source_remove(this._refreshId);
         this._popup?.destroyNow();
         this._popup = null;
         super._onDestroy();

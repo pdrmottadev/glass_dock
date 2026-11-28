@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.2.0 — 2026-11-28
+
+- **Badges and progress.** Unread counts and progress bars published by apps
+  (Telegram, Thunderbird, Firefox downloads, software updates and others,
+  through the LauncherEntry API) show on their icons, in every style and at
+  any zoom. Urgent apps bounce. Both can be turned off.
+- **Folder stacks.** Any folder can sit next to Downloads and open as a fan or
+  a grid (*Right Section → Folder Stacks*). A stack's icon shows its newest
+  file, and downloads in progress show as "Downloading…" instead of an empty
+  file plus a partial one.
+- **Hover popup.** Resting the pointer on an app opens a popup next to its
+  icon, without taking over the keyboard or the desktop:
+  - **live window previews**: click one to focus it, × to close it (on by
+    default in the full-width styles);
+  - **mini player** for music and video players (MPRIS): cover, track,
+    artist, previous, play/pause and next; scrolling on it changes the
+    player's volume.
+- **Several monitors.** A dock on every monitor, each showing the windows on
+  its own monitor (optional). Optionally, show only the windows on the
+  current workspace.
+- **Liquid glass (experimental).** The glass bends what is behind it near the
+  edges, with a light rim, a highlight under the pointer and blur with real
+  rounded corners. Off by default; needs graphics acceleration.
+
 ## 1.1.0 — 2026-11-27
 
 - New dock styles, picked in *Appearance → Style*. All of them keep the glass

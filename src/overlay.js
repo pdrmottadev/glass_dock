@@ -17,6 +17,55 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const DEFAULT_CLOSE_TIME = 170;
 
+/**
+ * Anchor points of an icon rectangle [x, y, w, h] in monitor coordinates.
+ */
+export function anchorFromRect(rect) {
+    const [x, y, w, h] = rect ?? [0, 0, 0, 0];
+    return {
+        x: x + w / 2,
+        y: y + h / 2,
+        top: y,
+        bottom: y + h,
+        left: x,
+        right: x + w,
+        width: w,
+        height: h,
+    };
+}
+
+/**
+ * Places a panel next to an anchor, on the side facing away from the screen
+ * edge, clamped to the dock's monitor (monitor coordinates).
+ */
+export function positionNextTo(dock, panel, anchor, gap = 16) {
+    const monitor = dock.monitor;
+    const maxH = Math.round(monitor.height * 0.6);
+    const [, natW] = panel.get_preferred_width(-1);
+    const [, natH] = panel.get_preferred_height(natW);
+    const w = Math.min(natW, monitor.width - 40);
+    const h = Math.min(natH, maxH);
+    panel.set_size(w, h);
+
+    let x, y;
+    switch (dock.geom.position) {
+    case 'left':
+        x = anchor.right + gap;
+        y = anchor.y - h / 2;
+        break;
+    case 'right':
+        x = anchor.left - gap - w;
+        y = anchor.y - h / 2;
+        break;
+    default:
+        x = anchor.x - w / 2;
+        y = anchor.top - gap - h;
+    }
+    x = Math.max(12, Math.min(x, monitor.width - w - 12));
+    y = Math.max(12, Math.min(y, monitor.height - h - 12));
+    panel.set_position(Math.round(x), Math.round(y));
+}
+
 export class ModalLayer {
     /**
      * @param {Dock} dock
@@ -70,53 +119,14 @@ export class ModalLayer {
         return this._dock.monitor;
     }
 
-    /**
-     * Anchor points of a dock item's icon, in layer coordinates.
-     */
+    /** Anchor points of a dock item's icon, in layer coordinates. */
     anchorFor(item) {
-        const [x, y, w, h] = this._dock.settledIconRect(item) ?? [0, 0, 0, 0];
-        return {
-            x: x + w / 2,
-            y: y + h / 2,
-            top: y,
-            bottom: y + h,
-            left: x,
-            right: x + w,
-            width: w,
-            height: h,
-        };
+        return anchorFromRect(this._dock.settledIconRect(item));
     }
 
-    /**
-     * Places a panel next to the anchor, on the side facing away from the
-     * screen edge, clamped to the monitor.
-     */
+    /** See positionNextTo(). */
     positionPanel(panel, anchor, gap = 16) {
-        const monitor = this.monitor;
-        const maxH = Math.round(monitor.height * 0.6);
-        const [, natW] = panel.get_preferred_width(-1);
-        const [, natH] = panel.get_preferred_height(natW);
-        const w = Math.min(natW, monitor.width - 40);
-        const h = Math.min(natH, maxH);
-        panel.set_size(w, h);
-
-        let x, y;
-        switch (this._dock.geom.position) {
-        case 'left':
-            x = anchor.right + gap;
-            y = anchor.y - h / 2;
-            break;
-        case 'right':
-            x = anchor.left - gap - w;
-            y = anchor.y - h / 2;
-            break;
-        default:
-            x = anchor.x - w / 2;
-            y = anchor.top - gap - h;
-        }
-        x = Math.max(12, Math.min(x, monitor.width - w - 12));
-        y = Math.max(12, Math.min(y, monitor.height - h - 12));
-        panel.set_position(Math.round(x), Math.round(y));
+        positionNextTo(this._dock, panel, anchor, gap);
     }
 
     close() {

@@ -557,3 +557,80 @@
 .glass-dock-style-bevel .glass-dock-stack-footer {
   border-radius: 0;
 }
+
+/* ---------- Badges and progress (LauncherEntry) ---------- */
+
+.glass-dock-badge {
+  color: #ffffff;
+  font-weight: bold;
+  text-align: center;
+  background-color: rgba(230, 52, 52, 0.96);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.glass-dock-progress {
+  border-radius: 99px;
+  background-color: rgba(20, 20, 24, 0.45);
+}
+
+.glass-dock-progress-fill {
+  border-radius: 99px;
+  background-color: -st-accent-color;
+}
+
+/* ---------- Folder stacks ---------- */
+
+.glass-dock-stack-newest {
+  icon-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- Hover popup: previews and mini player ---------- */
+
+.glass-dock-hover-popup {
+  spacing: 8px;
+}
+
+.glass-dock-hover-previews {
+  spacing: 8px;
+}
+
+.glass-dock-media {
+  spacing: 12px;
+  padding: 4px 6px;
+  min-width: 260px;
+}
+
+.glass-dock-media-cover {
+  border-radius: 8px;
+}
+
+.glass-dock-media-title {
+  font-weight: bold;
+  font-size: 10.5pt;
+  max-width: 220px;
+}
+
+.glass-dock-media-artist {
+  font-size: 9.5pt;
+  color: rgba(60, 60, 67, 0.75);
+  max-width: 220px;
+}
+
+.glass-dock-dark .glass-dock-media-artist {
+  color: rgba(235, 235, 245, 0.65);
+}
+
+.glass-dock-media-controls {
+  spacing: 6px;
+  padding-top: 6px;
+}
+
+.glass-dock-media-button {
+  padding: 6px;
+  border-radius: 99px;
+  background-color: rgba(127, 127, 127, 0.16);
+}
+
+.glass-dock-media-button:hover {
+  background-color: rgba(127, 127, 127, 0.3);
+}

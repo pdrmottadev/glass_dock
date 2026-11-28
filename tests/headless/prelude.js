@@ -32,6 +32,10 @@
             const [outer] = this.outer();
             return outer?.get_children().find(c => c.name === 'glassDock')._delegate ?? null;
         },
+        docks() {
+            return this.outer().map(o => o.get_children().find(c => c.name === 'glassDock')._delegate)
+                .sort((a, b) => a.monitorIndex - b.monitorIndex);
+        },
         item(key) {
             return this.dock()._itemMap.get(key);
         },
@@ -93,6 +97,11 @@
             const t = now();
             pointer.notify_button(t, button, Clutter.ButtonState.PRESSED);
             pointer.notify_button(t + 50000, button, Clutter.ButtonState.RELEASED);
+            return true;
+        },
+        scroll(up = true) {
+            pointer.notify_discrete_scroll(now(),
+                up ? Clutter.ScrollDirection.UP : Clutter.ScrollDirection.DOWN, Clutter.ScrollSource.WHEEL);
             return true;
         },
         relative(dx, dy) {

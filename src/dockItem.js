@@ -646,6 +646,23 @@ class DockAppIcon extends DockItem {
         this._syncState();
         this._syncFocus();
 
+        // Badge and progress bar published by the app (LauncherEntry API).
+        const settings = this._dock.settings;
+        if (settings.get_boolean('show-badges') || settings.get_boolean('show-progress')) {
+            this._badge = new St.Label({style_class: 'glass-dock-badge', visible: false});
+            this._progress = new St.Widget({style_class: 'glass-dock-progress', visible: false});
+            this._progressFill = new St.Widget({style_class: 'glass-dock-progress-fill'});
+            this._progress.add_child(this._progressFill);
+            this._content.add_child(this._progress);
+            this._content.add_child(this._badge);
+            this._badgeFont = 0;
+            this._dock.launcher.connectObject('changed', (launcher, appId) => {
+                if (appId === this.app.get_id())
+                    this._syncLauncherEntry();
+            }, this);
+            this._syncLauncherEntry();
+        }
+
         this._draggable = DND.makeDraggable(this, {timeoutThreshold: 200});
         this._draggable.connectObject(
             'drag-begin', () => this._dock.onItemDragBegin(this),
@@ -668,13 +685,25 @@ class DockAppIcon extends DockItem {
         return this.app.get_icon();
     }
 
-    /** This app's windows, including ones GNOME did not match to it. */
+    /**
+     * This app's windows shown on this dock, including ones GNOME did not
+     * match to it.
+     */
     windows() {
-        return this._dock.model.windowsFor(this.app);
+        return this._dock.model.windowsFor(this.app).filter(w => this._dock.windowFilter(w));
     }
 
     get running() {
-        return this._dock.model.isRunning(this.app);
+        if (!this._dock.model.isRunning(this.app))
+            return false;
+        // A dock showing only its monitor or workspace counts the windows there.
+        return !this._dock.isolating || this.windows().length > 0;
+    }
+
+    /** Called when windows moved to another monitor or workspace. */
+    refreshWindows() {
+        this._syncState();
+        this._applyIconGeometry();
     }
 
     _syncState() {
@@ -683,6 +712,59 @@ class DockAppIcon extends DockItem {
 
     _syncFocus() {
         this.setDotsActive(this._dock.model.isFocused(this.app));
+    }
+
+    _syncLauncherEntry() {
+        const entry = this._dock.launcher.get(this.app.get_id());
+        const settings = this._dock.settings;
+        const count = entry?.countVisible && entry.count > 0 ? entry.count : 0;
+        this._badge.visible = settings.get_boolean('show-badges') && count > 0;
+        this._badge.text = count > 99 ? '99+' : String(count);
+        this._progress.visible = settings.get_boolean('show-progress') && !!entry?.progressVisible;
+        this._progressValue = entry?.progress ?? 0;
+        if (entry?.urgent && !this._dock.model.isFocused(this.app))
+            this.bounce(3, () => this._dock.model.isFocused(this.app));
+        this._dock.queueRelayout();
+    }
+
+    /** Badge on the icon's corner and progress bar along its base. */
+    _layoutLauncherEntry(geom, m) {
+        if (!this._badge)
+            return;
+        const icon = this._iconActor;
+        const size = icon.width;
+        const s = size * icon.scale_x;
+        const [px, py] = geom.edgePivot;
+        const vx = icon.x + px * (size - s);
+        const vy = icon.y + py * (size - s);
+        const opacity = Math.round(255 * this.presence.value);
+
+        if (this._badge.visible) {
+            const font = Math.max(9, Math.round(s * 0.24));
+            if (font !== this._badgeFont) {
+                this._badgeFont = font;
+                this._badge.style = `font-size: ${font}px; min-width: ${font}px;` +
+                    `padding: 0 ${Math.round(font * 0.35)}px; border-radius: ${font}px;`;
+            }
+            const [, bw] = this._badge.get_preferred_width(-1);
+            const [, bh] = this._badge.get_preferred_height(bw);
+            this._badge.set_position(Math.round(vx + s - bw * 0.7), Math.round(vy - bh * 0.3));
+            this._badge.set_size(Math.ceil(bw), Math.ceil(bh));
+            this._badge.opacity = opacity;
+        }
+        if (this._progress.visible) {
+            const w = Math.round(s * 0.8);
+            const h = Math.max(3, Math.round(s * 0.09));
+            this._progress.set_position(Math.round(vx + (s - w) / 2), Math.round(vy + s - h - s * 0.06));
+            this._progress.set_size(w, h);
+            this._progressFill.set_size(Math.round(w * this._progressValue), h);
+            this._progress.opacity = opacity;
+        }
+    }
+
+    applyLayout(geom, center, crossSize, scale, m, snap) {
+        super.applyLayout(geom, center, crossSize, scale, m, snap);
+        this._layoutLauncherEntry(geom, m);
     }
 
     createMenu() {
@@ -711,6 +793,7 @@ class DockAppIcon extends DockItem {
 
     vfunc_clicked(button) {
         this._dock.hideTooltip();
+        this._dock.closeHoverPopup();
         this.activate(button);
     }
 
@@ -730,6 +813,13 @@ class DockAppIcon extends DockItem {
         }
 
         if (!this.running) {
+            // Running elsewhere (another monitor or workspace): bring it here.
+            const elsewhere = this._dock.model.windowsFor(app);
+            if (elsewhere.length && this._dock.model.isRunning(app)) {
+                this._raiseAll(elsewhere);
+                Main.overview.hide();
+                return;
+            }
             this.animateLaunch();
             app.activate();
             Main.overview.hide();
@@ -869,16 +959,21 @@ class DockAppIcon extends DockItem {
     }
 
     _applyIconGeometry() {
-        for (const w of this.windows())
-            w.set_icon_geometry(this._iconGeometry);
+        for (const w of this._dock.model.windowsFor(this.app)) {
+            if (this._dock.ownsWindow(w))
+                w.set_icon_geometry(this._iconGeometry);
+        }
     }
 
     _onDestroy() {
         if (this._iconGeometry) {
-            for (const w of this.windows())
-                w.set_icon_geometry(null);
+            for (const w of this._dock.model.windowsFor(this.app)) {
+                if (this._dock.ownsWindow(w))
+                    w.set_icon_geometry(null);
+            }
         }
         this.app.disconnectObject(this);
+        this._dock.launcher.disconnectObject(this);
         Shell.WindowTracker.get_default().disconnectObject(this);
         this._dock.model.disconnectObject(this);
         super._onDestroy();

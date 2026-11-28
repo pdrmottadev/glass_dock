@@ -61,6 +61,84 @@ export function createWindowThumbnail(metaWindow, maxW, maxH) {
     return {actor: container, width, height, scale};
 }
 
+/**
+ * A window's card: title, close button and live thumbnail. Clicking the
+ * thumbnail focuses the window.
+ *
+ * @param {Meta.Window} metaWindow
+ * @param {Shell.App} app
+ * @param {number} maxW
+ * @param {number} maxH
+ * @param {Function} onChosen called right before the window is focused
+ * @returns {St.BoxLayout}
+ */
+export function createPreviewCard(metaWindow, app, maxW, maxH, onChosen) {
+    const card = new St.BoxLayout({
+        style_class: 'glass-dock-preview-card',
+        orientation: Clutter.Orientation.VERTICAL,
+        reactive: true,
+        track_hover: true,
+    });
+    if (metaWindow.has_focus())
+        card.add_style_pseudo_class('checked');
+
+    const header = new St.BoxLayout({style_class: 'glass-dock-preview-header'});
+    const title = new St.Label({
+        style_class: 'glass-dock-preview-title',
+        text: metaWindow.get_title() || app.get_name(),
+        x_expand: true,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    title.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+    title.set_width(maxW - 28);
+    header.add_child(title);
+
+    const closeButton = new St.Button({
+        style_class: 'glass-dock-preview-close',
+        accessible_name: _('Close Window'),
+        child: new St.Icon({icon_name: 'window-close-symbolic', icon_size: 12}),
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    closeButton.connect('clicked', () => {
+        metaWindow.delete(global.get_current_time());
+    });
+    header.add_child(closeButton);
+    card.add_child(header);
+
+    const thumbButton = new St.Button({
+        style_class: 'glass-dock-preview-thumb',
+        accessible_name: title.text,
+        width: maxW,
+        height: maxH,
+    });
+    const thumb = createWindowThumbnail(metaWindow, maxW, maxH);
+    if (thumb) {
+        thumb.actor.x_align = Clutter.ActorAlign.CENTER;
+        thumb.actor.y_align = Clutter.ActorAlign.CENTER;
+        thumb.actor.x_expand = true;
+        thumb.actor.y_expand = true;
+        const bin = new St.Widget({layout_manager: new Clutter.BinLayout(), x_expand: true, y_expand: true});
+        bin.add_child(thumb.actor);
+        thumbButton.set_child(bin);
+    } else {
+        thumbButton.set_child(app.create_icon_texture(64));
+    }
+    if (metaWindow.minimized)
+        thumbButton.opacity = MINIMIZED_OPACITY;
+    thumbButton.connect('clicked', () => {
+        const time = global.get_current_time();
+        onChosen();
+        Main.activateWindow(metaWindow, time);
+    });
+    card.add_child(thumbButton);
+
+    metaWindow.connectObject('notify::title', () => {
+        title.text = metaWindow.get_title() || app.get_name();
+    }, card);
+    card.connect('destroy', () => metaWindow.disconnectObject(card));
+    return card;
+}
+
 export class WindowPreviewsPopup {
     constructor(item) {
         this._dock = item._dock;
@@ -125,77 +203,10 @@ export class WindowPreviewsPopup {
         this._panel.destroy_all_children();
         const [maxW, maxH] = this._thumbSize(windows.length);
         for (const w of windows)
-            this._panel.add_child(this._createCard(w, maxW, maxH));
+            this._panel.add_child(createPreviewCard(w, this._app, maxW, maxH, () => this.close()));
 
         this._panel.set_size(-1, -1);
         this._modal.positionPanel(this._panel, this._anchor);
-    }
-
-    _createCard(metaWindow, maxW, maxH) {
-        const card = new St.BoxLayout({
-            style_class: 'glass-dock-preview-card',
-            orientation: Clutter.Orientation.VERTICAL,
-            reactive: true,
-            track_hover: true,
-        });
-        if (metaWindow.has_focus())
-            card.add_style_pseudo_class('checked');
-
-        const header = new St.BoxLayout({style_class: 'glass-dock-preview-header'});
-        const title = new St.Label({
-            style_class: 'glass-dock-preview-title',
-            text: metaWindow.get_title() || this._app.get_name(),
-            x_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        title.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-        title.set_width(maxW - 28);
-        header.add_child(title);
-
-        const closeButton = new St.Button({
-            style_class: 'glass-dock-preview-close',
-            accessible_name: _('Close Window'),
-            child: new St.Icon({icon_name: 'window-close-symbolic', icon_size: 12}),
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        closeButton.connect('clicked', () => {
-            metaWindow.delete(global.get_current_time());
-        });
-        header.add_child(closeButton);
-        card.add_child(header);
-
-        const thumbButton = new St.Button({
-            style_class: 'glass-dock-preview-thumb',
-            accessible_name: title.text,
-            width: maxW,
-            height: maxH,
-        });
-        const thumb = createWindowThumbnail(metaWindow, maxW, maxH);
-        if (thumb) {
-            thumb.actor.x_align = Clutter.ActorAlign.CENTER;
-            thumb.actor.y_align = Clutter.ActorAlign.CENTER;
-            thumb.actor.x_expand = true;
-            thumb.actor.y_expand = true;
-            const bin = new St.Widget({layout_manager: new Clutter.BinLayout(), x_expand: true, y_expand: true});
-            bin.add_child(thumb.actor);
-            thumbButton.set_child(bin);
-        } else {
-            thumbButton.set_child(this._app.create_icon_texture(64));
-        }
-        if (metaWindow.minimized)
-            thumbButton.opacity = MINIMIZED_OPACITY;
-        thumbButton.connect('clicked', () => {
-            const time = global.get_current_time();
-            this.close();
-            Main.activateWindow(metaWindow, time);
-        });
-        card.add_child(thumbButton);
-
-        metaWindow.connectObject('notify::title', () => {
-            title.text = metaWindow.get_title() || this._app.get_name();
-        }, card);
-        card.connect('destroy', () => metaWindow.disconnectObject(card));
-        return card;
     }
 
     _animateOut() {

@@ -57,8 +57,12 @@ function styleRow(settings) {
             return;
         settings.delay();
         settings.set_string('dock-style', style.id);
-        settings.set_int('icon-size', style.preset['icon-size']);
-        settings.set_boolean('magnification-enabled', style.preset['magnification-enabled']);
+        for (const [key, value] of Object.entries(style.preset)) {
+            if (typeof value === 'boolean')
+                settings.set_boolean(key, value);
+            else
+                settings.set_int(key, value);
+        }
         settings.apply();
     });
     const id = settings.connect('changed::dock-style', sync);
@@ -118,6 +122,61 @@ function monitorChoices(settings) {
     return choices;
 }
 
+/** Extra folders shown as stacks: a row per folder and an Add button. */
+function stacksGroup(settings, window) {
+    const group = new Adw.PreferencesGroup({
+        title: _('Folder Stacks'),
+        description: _('Any folder can sit next to Downloads and open as a fan or a grid.'),
+    });
+    const add = new Gtk.Button({
+        label: _('Add Folder…'),
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat'],
+    });
+    add.connect('clicked', () => {
+        const dialog = new Gtk.FileDialog({title: _('Choose a Folder'), modal: true});
+        dialog.select_folder(window, null, (d, result) => {
+            let folder;
+            try {
+                folder = d.select_folder_finish(result);
+            } catch {
+                return; // dismissed
+            }
+            const uris = settings.get_strv('extra-stacks');
+            if (!uris.includes(folder.get_uri()))
+                settings.set_strv('extra-stacks', [...uris, folder.get_uri()]);
+        });
+    });
+    group.set_header_suffix(add);
+
+    let rows = [];
+    const sync = () => {
+        rows.forEach(row => group.remove(row));
+        rows = settings.get_strv('extra-stacks').map(uri => {
+            const file = Gio.File.new_for_uri(uri);
+            const row = new Adw.ActionRow({
+                title: file.get_basename() ?? uri,
+                subtitle: file.get_path() ?? uri,
+            });
+            const remove = new Gtk.Button({
+                icon_name: 'list-remove-symbolic',
+                tooltip_text: _('Remove'),
+                valign: Gtk.Align.CENTER,
+                css_classes: ['flat'],
+            });
+            remove.connect('clicked', () => settings.set_strv('extra-stacks',
+                settings.get_strv('extra-stacks').filter(u => u !== uri)));
+            row.add_suffix(remove);
+            group.add(row);
+            return row;
+        });
+    };
+    sync();
+    const id = settings.connect('changed::extra-stacks', sync);
+    group.connect('destroy', () => settings.disconnect(id));
+    return group;
+}
+
 export default class GlassDockPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
@@ -143,7 +202,15 @@ export default class GlassDockPreferences extends ExtensionPreferences {
             ['left', _('Left')],
             ['right', _('Right')],
         ]));
-        layout.add(choiceRow(settings, 'monitor-connector', _('Monitor'), monitorChoices(settings)));
+        const monitorRow = choiceRow(settings, 'monitor-connector', _('Monitor'), monitorChoices(settings));
+        layout.add(monitorRow);
+        layout.add(switchRow(settings, 'multi-monitor', _('Dock on every monitor')));
+        settings.bind('multi-monitor', monitorRow, 'sensitive',
+            Gio.SettingsBindFlags.GET | Gio.SettingsBindFlags.INVERT_BOOLEAN);
+        const isolateMonitors = switchRow(settings, 'isolate-monitors', _('Each dock shows its own windows'),
+            _('Indicators, previews and open apps only count windows on that monitor'));
+        settings.bind('multi-monitor', isolateMonitors, 'sensitive', Gio.SettingsBindFlags.GET);
+        layout.add(isolateMonitors);
         layout.add(spinRow(settings, 'icon-size', _('Icon size'),
             _('In pixels; icons shrink automatically when they do not fit'), 32, 96, 2));
         look.add(layout);
@@ -189,6 +256,15 @@ export default class GlassDockPreferences extends ExtensionPreferences {
         const glass = new Adw.PreferencesGroup({title: _('Glass')});
         glass.add(switchRow(settings, 'blur-enabled', _('Blur the background')));
         glass.add(scaleRow(settings, 'glass-opacity', _('Opacity'), 0, 1, 2));
+        const liquid = switchRow(settings, 'liquid-glass', _('Liquid glass (experimental)'),
+            _('Bends the background near the edges, with a light rim and a highlight under the pointer. ' +
+              'Needs graphics acceleration.'));
+        settings.bind('blur-enabled', liquid, 'sensitive', Gio.SettingsBindFlags.GET);
+        glass.add(liquid);
+        const strength = spinRow(settings, 'liquid-glass-strength', _('Liquid glass strength'),
+            _('From 0 to 100'), 0, 100, 5);
+        settings.bind('liquid-glass', strength, 'sensitive', Gio.SettingsBindFlags.GET);
+        glass.add(strength);
         glass.add(switchRow(settings, 'show-running-indicators', _('Running indicators'),
             _('One dot per open window')));
         look.add(glass);
@@ -233,9 +309,29 @@ export default class GlassDockPreferences extends ExtensionPreferences {
         ]));
         behavior.add(focused);
 
+        const hover = new Adw.PreferencesGroup({
+            title: _('Resting the Pointer on an App'),
+            description: _('A popup appears next to the icon; the rest of the desktop keeps working.'),
+        });
+        hover.add(switchRow(settings, 'hover-previews', _('Window previews'),
+            _('Live thumbnails of the app\'s windows')));
+        hover.add(switchRow(settings, 'media-controls', _('Mini player'),
+            _('Cover, play/pause and track buttons for music and video players; scroll on it for volume')));
+        hover.add(spinRow(settings, 'hover-delay', _('Delay'), _('In milliseconds'), 0, 2000, 50));
+        behavior.add(hover);
+
+        const workspaces = new Adw.PreferencesGroup({title: _('Workspaces')});
+        workspaces.add(switchRow(settings, 'isolate-workspaces', _('Only windows on the current workspace'),
+            _('Indicators, previews and open apps only count windows on the workspace you are on')));
+        behavior.add(workspaces);
+
         const icons = new Adw.PreferencesGroup({title: _('Icons')});
         icons.add(switchRow(settings, 'bounce-on-launch', _('Bounce when launching an app')));
         icons.add(switchRow(settings, 'show-apps-button', _('Show Applications button')));
+        icons.add(switchRow(settings, 'show-badges', _('Counters on icons'),
+            _('Unread messages and other counts published by apps')));
+        icons.add(switchRow(settings, 'show-progress', _('Progress on icons'),
+            _('Downloads, updates and other progress published by apps')));
         behavior.add(icons);
 
         window.add(behavior);
@@ -259,8 +355,11 @@ export default class GlassDockPreferences extends ExtensionPreferences {
             ['fan', _('Fan')],
             ['grid', _('Grid')],
         ]));
+        places.add(switchRow(settings, 'stack-preview-icon', _('Newest file on the icon'),
+            _('Shows the most recent file on top of the folder')));
         places.add(switchRow(settings, 'show-trash', _('Show Trash')));
         right.add(places);
+        right.add(stacksGroup(settings, window));
 
         window.add(right);
     }

@@ -16,6 +16,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {AppsModel} from './appsModel.js';
 import {Dock} from './dock.js';
+import {LauncherEntries} from './launcherApi.js';
+import {MediaPlayers} from './mpris.js';
 
 const REBUILD_DELAY_MS = 150;
 
@@ -47,7 +49,9 @@ export class DockManager {
         this._settings = extension.getSettings();
         this._interfaceSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._model = new AppsModel(this._settings);
-        this._dock = null;
+        this._launcher = new LauncherEntries();
+        this._media = new MediaPlayers();
+        this._docks = [];
         this._rebuildId = 0;
         this._warnedConflicts = new Set();
 
@@ -76,11 +80,18 @@ export class DockManager {
     }
 
     _build() {
-        this._dock?.destroy();
-        this._dock = new Dock(this._settings, this._model, {
+        this._docks.forEach(dock => dock.destroy());
+        const options = {
             dark: this._dark,
             interfaceSettings: this._interfaceSettings,
-        });
+            launcher: this._launcher,
+            media: this._media,
+        };
+        // One dock per monitor, or one on the chosen monitor.
+        const monitors = this._settings.get_boolean('multi-monitor')
+            ? Main.layoutManager.monitors.map(m => m.index) : [null];
+        this._docks = monitors.map(monitorIndex =>
+            new Dock(this._settings, this._model, {...options, monitorIndex}));
         this._syncOverviewDashSpace();
         this._checkConflicts();
     }
@@ -136,10 +147,14 @@ export class DockManager {
         Main.layoutManager.disconnectObject(this);
         Main.extensionManager.disconnectObject(this);
 
-        this._dock?.destroy();
-        this._dock = null;
+        this._docks.forEach(dock => dock.destroy());
+        this._docks = [];
         this._model.destroy();
         this._model = null;
+        this._launcher.destroy();
+        this._launcher = null;
+        this._media.destroy();
+        this._media = null;
 
         this._restoreOverviewDash();
         this._settings = null;

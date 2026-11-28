@@ -750,6 +750,228 @@ scenario_styles() {
     wait_for "__gd.windows('$TE').length === 0 && __gd.windows('$CALC').length === 0" 40
 }
 
+scenario_badges() {
+    section "Badges and progress (LauncherEntry)"
+    set_favorites "['$CALC', '$TE', '$FILES']"
+    local item="__gd.item('app:$TE')"
+    coproc LAUNCHER { python3 -I "$HERE/fake_launcher.py" "$TE"; }
+    read -r _ <&"${LAUNCHER[0]}"
+    echo '{"count": 3, "count-visible": true, "progress": 0.4, "progress-visible": true}' >&"${LAUNCHER[1]}"
+    read -r _ <&"${LAUNCHER[0]}"
+    wait_for "$item._badge.visible" 20
+    assert_eq "a count shows as a badge" "$item._badge.visible && $item._badge.text" 3
+    assert_true "progress shows as a bar, 40% full" \
+        "$item._progress.visible && Math.abs($item._progressFill.width / $item._progress.width - 0.4) < 0.05"
+    assert_true "the badge sits on the icon's corner" \
+        "(() => { const [bx, by] = $item._badge.get_transformed_position();
+            const [ix, iy] = $item._iconActor.get_transformed_position();
+            const s = $item._iconActor.width * $item._iconActor.scale_x;
+            return bx > ix + s * 0.5 && by < iy + s * 0.5; })()"
+    shot badges
+    echo '{"count": 120}' >&"${LAUNCHER[1]}"
+    read -r _ <&"${LAUNCHER[0]}"
+    wait_for "$item._badge.text === '99+'" 20
+    assert_eq "large counts show as 99+" "$item._badge.text" "99+"
+    echo '{"count-visible": false, "progress-visible": false}' >&"${LAUNCHER[1]}"
+    read -r _ <&"${LAUNCHER[0]}"
+    wait_for "!$item._badge.visible && !$item._progress.visible" 20
+    assert_true "hiding the count and progress removes them" "!$item._badge.visible && !$item._progress.visible"
+    echo '{"count": 5, "count-visible": true}' >&"${LAUNCHER[1]}"
+    read -r _ <&"${LAUNCHER[0]}"
+    wait_for "$item._badge.visible" 20
+    exec {LAUNCHER[1]}>&-
+    wait "$LAUNCHER_PID" 2>/dev/null
+    wait_for "!$item._badge.visible" 20
+    assert_true "the badge goes away when the app quits" "!$item._badge.visible"
+    gset show-badges false
+    sleep 1
+    assert_true "badges can be turned off" "!__gd.item('app:$TE')._badge || !__gd.item('app:$TE')._badge.visible"
+    greset show-badges
+}
+
+scenario_folders() {
+    section "Folder stacks"
+    local dir="$WORK/Projects"
+    mkdir -p "$dir"
+    echo a > "$dir/plan.txt"
+    touch -d '2026-01-01' "$dir/plan.txt"
+    local uri="file://$dir"
+    local item="__gd.item('stack:$uri')"
+    gset extra-stacks "['$uri']"
+    wait_for "!!$item" 40
+    assert_true "an added folder shows up as a stack after Downloads" \
+        "(d => d._items.indexOf($item) === d._items.indexOf(__gd.item('downloads')) + 1)(__gd.dock())"
+    assert_eq "it is named after the folder" "$item.labelText" Projects
+    wait_for "$item._newestIcon.visible" 20
+    assert_true "its icon shows the newest file" "$item._newestIcon.visible"
+    local before
+    before=$(ev "$item._newestIcon.gicon.to_string()")
+    echo b > "$dir/photo.png"
+    wait_for "$item._newestIcon.gicon.to_string() !== '$before'" 40
+    assert_true "a new file updates the icon" "$item._newestIcon.gicon.to_string() !== '$before'"
+    # A browser download: an empty placeholder plus the partial file.
+    touch "$dir/movie.mp4"
+    echo c > "$dir/movie.mp4.part"
+    sleep 1
+    gset downloads-view "'fan'"
+    click_item "stack:$uri"
+    wait_for '__gd.overlays().length === 1'
+    local labels="__gd.overlays()[0].get_children().map(a => a.get_child()?.get_child_at_index(0)?.text ?? '')"
+    assert_true "a partial download shows as downloading, once" \
+        "$labels.filter(t => t.includes('movie')).length === 1 && $labels.some(t => t === 'Downloading movie.mp4…')"
+    assert_true "the fan lists the folder's files" "$labels.includes('plan.txt') && $labels.includes('photo.png')"
+    shot folder-stack
+    key_escape
+    assert_true "the partial file is not taken as the newest" \
+        "!$item._newestIcon.gicon.to_string().includes('movie')"
+    gset extra-stacks "[]"
+    wait_for "!$item" 40
+    assert_true "removing the folder removes the stack" "!$item"
+}
+
+scenario_hover() {
+    section "Hover popup: live previews and mini player"
+    set_favorites "['$CALC', '$TE', '$FILES']"
+    gset hover-previews true
+    gset hover-delay 300
+    open_windows "$TE" 2
+    local popup="__gd.dock()._hoverPopup"
+    local panel="$popup._panel"
+    local xy
+    move 800 300
+    sleep 0.5
+    xy=$(ev "__gd.center('app:$TE').join(' ')")
+    # shellcheck disable=SC2086
+    move $xy
+    wait_for "$popup.isOpen" 20
+    assert_true "resting on an app opens its hover popup" "$popup.isOpen"
+    assert_eq "it shows one live preview per window" \
+        "$panel.get_children().find(a => a.has_style_class_name('glass-dock-hover-previews')).get_n_children()" 2
+    assert_eq "it takes no grab" 'Main.modalCount' 0
+    # The tooltip fades out (100 ms) when the popup opens.
+    wait_for "!__gd.dock()._tooltip.visible || __gd.dock()._tooltip.opacity === 0" 20
+    assert_true "the tooltip makes way for it" "!__gd.dock()._tooltip.visible || __gd.dock()._tooltip.opacity === 0"
+    shot hover-previews
+
+    # Into the popup: it stays, and so does the zoom.
+    # shellcheck disable=SC2046
+    move $(overlay_point "$panel")
+    sleep 0.8
+    assert_true "the popup stays open with the pointer on it" "$popup.isOpen"
+    assert_eq "the zoom holds still meanwhile" '__gd.dock()._magAmount.value' 1
+    local target
+    target=$(ev "__gd.windows('$TE')[0].get_stable_sequence()")
+    # shellcheck disable=SC2046
+    click $(overlay_point "$panel.get_children().find(a => a.has_style_class_name('glass-dock-hover-previews'))
+        .get_child_at_index(0).get_child_at_index(1)")
+    sleep 0.6
+    assert_eq "clicking a preview focuses that window" '__gd.focusSeq()' "$target"
+    assert_true "and closes the popup" "!$popup.isOpen"
+
+    # shellcheck disable=SC2086
+    move $xy
+    wait_for "$popup.isOpen" 20
+    move 800 300
+    wait_for "!$popup.isOpen" 20
+    assert_true "leaving the icon closes it" "!$popup.isOpen"
+    wait_for '__gd.dock()._magAmount.value === 0'
+    assert_eq "and the zoom collapses" '__gd.dock()._magAmount.value' 0
+
+    xy=$(ev "__gd.center('app:$CALC').join(' ')")
+    # shellcheck disable=SC2086
+    move $xy
+    sleep 0.8
+    assert_true "an app without windows or player gets no popup" "!$popup.isOpen"
+    move 800 300
+
+    # Mini player
+    local log="$WORK/mpris.log"
+    : > "$log"
+    python3 -I "$HERE/fake_mpris.py" org.gnome.TextEditor "$log" &
+    local player_pid=$!
+    wait_for "!!__gd.dock().media.playerFor('$TE')" 40
+    assert_true "the player is matched to its app" "!!__gd.dock().media.playerFor('$TE')"
+    sleep 0.3
+    xy=$(ev "__gd.center('app:$TE').join(' ')")
+    # shellcheck disable=SC2086
+    move $xy
+    wait_for "$popup.isOpen && !!$popup._media" 20
+    assert_eq "the mini player shows the track" "$popup._media.title.text" "Test Song"
+    assert_eq "and the artist" "$popup._media.artist.text" "Tester"
+    shot hover-media
+    # shellcheck disable=SC2046
+    move $(overlay_point "$popup._media.play")
+    sleep 0.3
+    # shellcheck disable=SC2046
+    click $(overlay_point "$popup._media.play")
+    wait_for "$popup._media?.play.child.icon_name === 'media-playback-start-symbolic'" 20
+    if grep -q PlayPause "$log"; then pass "the player got PlayPause"; else fail "the player got PlayPause"; fi
+    assert_eq "the button follows the new state" "$popup._media.play.child.icon_name" media-playback-start-symbolic
+    # shellcheck disable=SC2046
+    move $(overlay_point "$popup._media.title")
+    sleep 0.2
+    ev "__gd.scroll(true)" > /dev/null
+    sleep 0.8
+    if grep -q "Volume=0.55" "$log"; then pass "scrolling on the player raises its volume"
+    else fail "scrolling on the player raises its volume ($(tr '\n' ' ' < "$log"))"; fi
+    kill "$player_pid" 2>/dev/null
+    wait "$player_pid" 2>/dev/null
+    wait_for "!$popup._media" 20
+    assert_true "the mini player goes away with the player" "!$popup._media"
+    move 800 300
+    wait_for "!$popup.isOpen" 20
+
+    close_windows "$TE"
+    wait_for "__gd.windows('$TE').length === 0" 40
+    greset hover-previews
+    greset hover-delay
+}
+
+scenario_liquid() {
+    section "Liquid glass"
+    gset liquid-glass true
+    wait_for "__gd.dock()?.settings.get_boolean('liquid-glass') && __gd.dock()._lastLayout !== null" 40
+    sleep 0.5
+    if [ "$(ev '!!__gd.dock()._liquid')" != "true" ]; then
+        assert_true "without shader support it falls back to the normal blur" \
+            "!__gd.dock()._liquid && __gd.dock()._blur.visible"
+        greset liquid-glass
+        return
+    fi
+    local liquid="__gd.dock()._liquid"
+    assert_true "the glass replaces the normal blur" "!__gd.dock()._blur.visible && $liquid.actor.visible"
+    assert_true "it covers the bar, with a margin for the blur" \
+        "(d => { const a = d._liquid.actor, b = d._background;
+            return a.x < b.x && a.y < b.y && a.x + a.width > b.x + b.width; })(__gd.dock())"
+    assert_true "the cloned windows line up with the screen behind it" \
+        "(d => { const [ox, oy] = d._stageOrigin(); const c = d._liquid._clone, a = d._liquid.actor;
+            return c.x === -(ox + a.x) && c.y === -(oy + a.y); })(__gd.dock())"
+    local xy
+    xy=$(ev "__gd.center('downloads').join(' ')")
+    # shellcheck disable=SC2086
+    move $xy
+    sleep 0.6
+    shot liquid-glass
+    move 800 300
+    sleep 0.4
+    gset autohide-mode "'autohide'"
+    wait_for "__gd.dock()?._liquid && !__gd.dock()._shown" 40
+    assert_true "the clone stays lined up while the dock is hidden" \
+        "(d => { const [ox, oy] = d._stageOrigin(); const c = d._liquid._clone, a = d._liquid.actor;
+            return c.x === -(ox + a.x) && c.y === -(oy + a.y); })(__gd.dock())"
+    greset autohide-mode
+    wait_for "__gd.dock()?._liquid && __gd.dock()._shown" 40
+    ev "Main.overview.show(); true" > /dev/null
+    sleep 1.2
+    shot liquid-overview
+    ev "Main.overview.hide(); true" > /dev/null
+    wait_for "!Main.overview.visible" 40
+    gset liquid-glass false
+    wait_for "!__gd.dock()?._liquid && __gd.dock()?._blur.visible" 40
+    assert_true "turning it off brings the normal blur back" "!__gd.dock()._liquid && __gd.dock()._blur.visible"
+    greset liquid-glass
+}
+
 # Separate shells -------------------------------------------------------------
 
 scenario_monitors() {
@@ -768,6 +990,56 @@ scenario_monitors() {
     wait_for "__gd.dock() && __gd.dock().monitorIndex === Main.layoutManager.primaryIndex" 40
     assert_eq "unknown monitor falls back to the primary" \
         '__gd.dock().monitorIndex === Main.layoutManager.primaryIndex' true
+
+    section "A dock on every monitor"
+    greset monitor-connector
+    set_favorites "['$CALC']"
+    gset multi-monitor true
+    wait_for "__gd.outer().length === 2" 40
+    assert_true "there is one dock per monitor" \
+        "__gd.docks().map(d => d.monitorIndex).join() === '0,1' &&
+         __gd.docks().every(d => __gd.outer().some(o => o.x === d.monitor.x && o.y === d.monitor.y))"
+    open_windows "$TE" 1
+    local here="__gd.windows('$TE')[0].get_monitor()"
+    local there="(1 - $here)"
+    wait_for "__gd.docks()[$here]._itemMap.has('app:$TE')" 40
+    assert_true "an open app shows on the dock of its window's monitor only" \
+        "__gd.docks()[$here]._itemMap.has('app:$TE') && !__gd.docks()[$there]._itemMap.has('app:$TE')"
+    local before
+    before=$(ev "$here")
+    ev "__gd.windows('$TE')[0].move_to_monitor(1 - $before); true" > /dev/null
+    wait_for "__gd.docks()[1 - $before]._itemMap.has('app:$TE') && !__gd.docks()[$before]._itemMap.has('app:$TE')" 40
+    assert_true "moving the window to the other monitor moves the app with it" \
+        "__gd.docks()[1 - $before]._itemMap.has('app:$TE') && !__gd.docks()[$before]._itemMap.has('app:$TE')"
+    assert_true "only the dock on the window's monitor is its minimize target" \
+        "(() => { const w = __gd.windows('$TE')[0]; const [, r] = w.get_icon_geometry();
+            const m = Main.layoutManager.monitors[w.get_monitor()];
+            return r.x >= m.x && r.x < m.x + m.width; })()"
+    gset isolate-monitors false
+    wait_for "__gd.outer().length === 2 && __gd.docks().every(d => d._itemMap.has('app:$TE'))" 40
+    assert_true "without isolation both docks show every window" \
+        "__gd.docks().every(d => d._itemMap.has('app:$TE'))"
+    greset isolate-monitors
+    greset multi-monitor
+    wait_for "__gd.outer().length === 1" 40
+    assert_eq "turning it off leaves a single dock" "__gd.outer().length" 1
+
+    section "Only the current workspace"
+    # Windows on other monitors are on every workspace (GNOME's default).
+    ev "__gd.windows('$TE')[0].move_to_monitor(Main.layoutManager.primaryIndex); true" > /dev/null
+    gset isolate-workspaces true
+    wait_for "__gd.dock()?._isolateWorkspace === true" 40
+    sleep 0.5
+    assert_true "the open app shows on its workspace" "__gd.dock()._itemMap.has('app:$TE')"
+    ev "__gd.windows('$TE')[0].change_workspace_by_index(1, false); true" > /dev/null
+    wait_for "!__gd.dock()._itemMap.has('app:$TE')" 40
+    assert_true "moving its window to another workspace hides it here" "!__gd.dock()._itemMap.has('app:$TE')"
+    ev "global.workspace_manager.get_workspace_by_index(1).activate(__gd.time()); true" > /dev/null
+    wait_for "__gd.dock()._itemMap.has('app:$TE')" 40
+    assert_true "switching to that workspace shows it again" "__gd.dock()._itemMap.has('app:$TE')"
+    greset isolate-workspaces
+    close_windows "$TE"
+    wait_for "__gd.windows('$TE').length === 0" 40
     assert_no_js_errors "no JS errors with two monitors"
 }
 
@@ -844,7 +1116,7 @@ scenario_i18n() {
 
 # ---- Main --------------------------------------------------------------------
 
-MAIN=(lifecycle basics multiwindow dnd autohide stacks zoom zoomconfig remote fit prefs dark styles multiwindow_styles)
+MAIN=(lifecycle basics multiwindow dnd autohide stacks zoom zoomconfig remote fit prefs dark styles multiwindow_styles badges folders hover liquid)
 SEPARATE=(monitors scale unmatched)
 SELECTED=("$@")
 [ ${#SELECTED[@]} -eq 0 ] && SELECTED=("${MAIN[@]}" i18n "${SEPARATE[@]}")
